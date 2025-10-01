@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Вход — SwimReg{% endblock %}
+{% block content %}
+<section class="grid-two">
+  <div class="card" style="max-width:420px;">
+    <h1>Вход в аккаунт</h1>
+    <p class="muted">Введите e-mail и пароль, чтобы перейти в личный кабинет и управлять заявками.</p>
+    <form class="form-grid" method="post" action="/auth/login" style="gap:14px;">
+      <label>E-mail
+        <input name="email" type="email" required autocomplete="email">
+      </label>
+      <label>Пароль
+        <input name="password" type="password" required autocomplete="current-password">
+      </label>
+      <button class="btn primary" type="submit">Войти</button>
+    </form>
+    <div class="card-footer">
+      <span class="muted">Нет аккаунта?</span>
+      <a class="btn" href="/auth/register">Создать профиль</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+{% if error is defined and error %}
+<script>
+  showToast({{ error|tojson }}, 'error', {dismissible:true, duration:6000});
+</script>
+{% endif %}
+{% endblock %}

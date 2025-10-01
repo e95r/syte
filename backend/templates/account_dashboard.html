@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет — SwimReg{% endblock %}
+{% block content %}
+{% set status_map = {
+  'pending': ('На модерации', 'status-pending'),
+  'approved': ('Подтверждена', 'status-approved'),
+  'rejected': ('Отклонена', 'status-rejected')
+} %}
+<section class="page-section">
+  <div class="card" style="flex-direction:row;align-items:center;gap:24px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:18px;min-width:260px;">
+      <div style="width:84px;height:84px;border-radius:50%;overflow:hidden;border:2px solid rgba(37,99,235,.18);background:#eef2ff;display:flex;align-items:center;justify-content:center;">
+        {% if user.avatar_path %}
+          <img src="/storage/{{ user.avatar_path }}" alt="Аватар" style="width:100%;height:100%;object-fit:cover;">
+        {% else %}
+          <span style="font-size:1.8rem;font-weight:700;color:var(--primary);">{{ user.username[:1]|upper }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <h1 style="margin:0;font-size:2rem;">{{ user.username }}</h1>
+        {% if user.full_name %}<div class="muted">{{ user.full_name }}</div>{% endif %}
+        <div class="card-footer" style="margin-top:12px;gap:8px;">
+          <form method="post" action="/auth/logout">
+            <button class="btn danger" type="submit">Выйти</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div style="margin-left:auto;display:flex;flex-direction:column;gap:12px;min-width:220px;">
+      <a class="btn primary" href="/account/edit">Заполнить профиль</a>
+      <a class="btn" href="/account/results">Мои результаты</a>
+      {% if not user.phone_verified_at %}
+        <a class="btn" href="/account/phone">Подтвердить телефон</a>
+      {% else %}
+        <span class="badge status-approved" style="align-self:flex-start;">Телефон подтверждён</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid-two">
+    <section class="card">
+      <h2>Данные профиля</h2>
+      <ul style="list-style:none;padding:0;margin:0;display:grid;gap:8px;">
+        <li><strong>E-mail:</strong> {{ user.email }}</li>
+        <li><strong>Город:</strong> {{ user.city or '—' }}</li>
+        <li><strong>Телефон:</strong> {{ user.phone or '—' }}</li>
+        <li><strong>Дата рождения:</strong> {{ user.birth_date.strftime('%d.%m.%Y') if user.birth_date else '—' }}</li>
+        <li><strong>Пол:</strong> {% if user.gender == 'M' %}Мужской{% elif user.gender == 'F' %}Женский{% else %}—{% endif %}</li>
+      </ul>
+      <div class="card-footer">
+        <a class="btn primary" href="/account/edit">Редактировать профиль</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Смена пароля</h2>
+      <form class="form-grid" method="post" action="/account/password" style="gap:12px;">
+        <label>Текущий пароль
+          <input name="old_password" type="password" required autocomplete="current-password">
+        </label>
+        <label>Новый пароль
+          <input name="new_password" type="password" required autocomplete="new-password">
+        </label>
+        <button class="btn" type="submit">Обновить пароль</button>
+      </form>
+    </section>
+
+  </div>
+
+  <div class="grid-two">
+    <section class="card">
+      <h2>Мои заявки</h2>
+      {% if quick_regs %}
+        <ul class="admin-list" style="box-shadow:none;border:none;padding:0;">
+          {% for r in quick_regs %}
+            {% set status = status_map.get(r.status, ('Статус неизвестен', 'status-pending')) %}
+            <li class="admin-list__item" style="box-shadow:none;border:1px solid var(--border);">
+              <div class="admin-list__info">
+                <a href="/competitions/{{ r.competition.slug }}"><strong>{{ r.competition.title }}</strong></a>
+                <div class="admin-list__meta">
+                  <span>{{ r.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                  {% if r.distance %}<span>Дистанция: {{ r.distance }}</span>{% endif %}
+                </div>
+              </div>
+              <div class="admin-list__actions" style="align-items:center;">
+                <span class="badge {{ status[1] }}">{{ status[0] }}</span>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">Вы ещё не записывались на соревнования. Выберите старт в разделе «Соревнования» и оформите быструю регистрацию.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Напоминания</h2>
+      {% if reminders %}
+        <ul class="admin-list" style="box-shadow:none;border:none;padding:0;">
+          {% for rem in reminders %}
+            <li class="admin-list__item" style="box-shadow:none;border:1px solid var(--border);">
+              <div class="admin-list__info">
+                <a href="/competitions/{{ rem.competition.slug }}"><strong>{{ rem.competition.title }}</strong></a>
+                <div class="admin-list__meta">
+                  <span>{{ rem.remind_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                  <span>{{ rem.channel|upper }}</span>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">Пока нет активных напоминаний.</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Последние уведомления</h2>
+    {% if notifications %}
+      <ul class="admin-list" style="box-shadow:none;border:none;padding:0;">
+        {% for n in notifications %}
+          <li class="admin-list__item" style="box-shadow:none;border:1px solid var(--border);">
+            <div class="admin-list__info">
+              <strong>{{ n.title }}</strong>
+              <div class="admin-list__meta">
+                <span>{{ n.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+              </div>
+              <div>{{ n.body }}</div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty-state">Уведомлений пока нет.</div>
+    {% endif %}
+  </section>
+
+  <section class="card" id="account-delete">
+    <h2>Удаление аккаунта</h2>
+    <p class="muted">После удаления аккаунта все заявки, напоминания и уведомления будут безвозвратно удалены.</p>
+    {% if delete_error %}
+      <div class="alert error">{{ delete_error }}</div>
+    {% endif %}
+    {% if delete_sent %}
+      <div class="alert info">Мы отправили код подтверждения на {{ user.email }}{% if delete_code_expires_at %}. Код действителен до {{ delete_code_expires_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}.</div>
+    {% endif %}
+    <form method="post" action="/account/delete/send-code" style="margin:0;">
+      <button class="btn danger" type="submit">Удалить аккаунт</button>
+    </form>
+    {% if delete_code_active %}
+      <form class="form-grid" method="post" action="/account/delete/confirm" style="gap:12px;">
+        <label>Код подтверждения из письма
+          <input name="code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" minlength="6" required>
+        </label>
+        <button class="btn danger" type="submit" onclick="return confirm('Удалить аккаунт без возможности восстановления?');">Удалить аккаунт</button>
+      </form>
+      {% if delete_code_expires_at %}
+        <p class="muted" style="margin:0;">Код перестанет действовать {{ delete_code_expires_at.strftime('%d.%m.%Y %H:%M') }}.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

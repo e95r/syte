@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение телефона{% endblock %}
+{% block content %}
+<h1>Подтверждение телефона</h1>
+
+<form method="post" action="/account/phone/send-code" style="display:grid;gap:10px;max-width:420px">
+  <label>Телефон (в международном формате)
+    <input name="phone" value="{{ user.phone }}" placeholder="+7..." required>
+  </label>
+  <button class="btn">Отправить код</button>
+</form>
+
+{% if sent %}
+  <hr>
+  <form method="post" action="/account/phone/confirm" style="display:grid;gap:10px;max-width:420px">
+    <label>Код из SMS (6 цифр)
+      <input name="code" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required>
+    </label>
+    <button class="btn primary">Подтвердить</button>
+  </form>
+  <p class="muted">Код действует 10 минут.</p>
+{% endif %}
+
+<p style="margin-top:12px"><a class="btn" href="/account">Назад</a></p>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Календарь соревнований{% endblock %}
+{% block head %}
+<style>
+  :root{
+    --panel:#ffffff; --muted:#6b7280; --text:#111827; --brand:#2563eb; --brand2:#059669; --warn:#d97706;
+    --wknd-bg:#eaf2ff; --wknd-head:#1d4ed8; --out:#9ca3af;
+    --cell:#e9edf3; --cell-border:#c6ced8; --cell-hover:#dee6ef; --grid-bg:#ffffff;
+    --ring:0 0 0 3px rgba(37,99,235,.18); --radius:14px;
+  }
+  .header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .title{font-size:28px;font-weight:800}
+  .controls{display:flex;gap:8px;align-items:center}
+  button.icon{appearance:none;border:1px solid #e5e7eb;background:var(--panel);color:var(--text);width:44px;height:44px;border-radius:12px;display:grid;place-items:center;cursor:pointer;transition:.18s}
+  button.icon:hover{transform:translateY(-1px);background:#f8fafc;border-color:#d1d5db}
+  button.icon:focus-visible{outline:none;box-shadow:var(--ring)}
+  .month-indicator{min-width:220px;text-align:center;font-weight:800;font-size:18px}
+  .legend{display:flex;gap:16px;align-items:center;color:var(--muted);margin:8px 2px 16px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:99px;margin-right:6px}
+  .d-qual{background:var(--brand)} .d-final{background:var(--brand2)} .d-other{background:var(--warn)}
+  .kbd{display:inline-block;background:#eef2ff;border-radius:8px;padding:2px 6px;border:1px solid #e0e7ff;font-size:12px;color:#444}
+  .legend .hint{margin-left:auto}
+  .calendar{border-radius:var(--radius);background:var(--panel);box-shadow:0 12px 30px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);overflow:hidden;border:1px solid #e5e7eb}
+  .weekdays,.grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .weekdays{padding:10px 8px;font-size:12px;letter-spacing:.3px;text-transform:uppercase}
+  .weekdays div{padding:6px 8px;text-align:center;color:#6b7280;font-weight:800}
+  .weekdays div.wknd{color:var(--wknd-head)}
+  .grid{gap:8px;padding:8px 8px 14px;background:var(--grid-bg)}
+  .day{position:relative;background:var(--cell);border-radius:12px;min-height:96px;padding:8px;border:1px solid var(--cell-border);transition:.18s;background,.18s border-color,.18s box-shadow;cursor:pointer}
+  .day:hover{background:var(--cell-hover);border-color:#b6c1ce}
+  .day:focus-visible{outline:none;box-shadow:var(--ring)}
+  .day.out .num{color:var(--out)}
+  .day .num{font-size:13px;color:#374151;font-weight:800}
+  .day.wknd{background:var(--wknd-bg)}
+  .today{box-shadow:inset 0 0 0 2px var(--brand)}
+  .badge{position:absolute;top:8px;right:8px;background:var(--brand);color:#fff;font-weight:800;font-size:10px;padding:4px 6px;border-radius:999px}
+  .dots{position:absolute;left:8px;bottom:8px;display:flex;gap:6px}.dots .dot{width:8px;height:8px}
+  .drawer{position:fixed;left:0;right:0;bottom:0;transform:translateY(105%);opacity:0;pointer-events:none;transition:transform .35s cubic-bezier(.22,1,.36,1),opacity .2s}
+  .drawer.open{transform:translateY(0);opacity:1;pointer-events:auto}
+  .drawer .panel{max-width:1100px;margin:0 auto 24px;border-radius:20px 20px 16px 16px;background:var(--panel);border:1px solid #e5e7eb;box-shadow:0 -10px 30px rgba(0,0,0,.08);padding:18px 16px 10px}
+  .drawer-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 6px 12px}
+  .drawer-title{font-weight:900;font-size:18px}
+  .close{appearance:none;border:none;background:transparent;color:#6b7280;cursor:pointer;font-size:22px;padding:6px 10px;border-radius:10px}
+  .close:hover{background:#f3f4f6;color:#111827}
+  .events{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}@media (max-width:780px){.events{grid-template-columns:1fr}}
+  .event{border-radius:14px;padding:12px;background:var(--panel);border:1px solid #e5e7eb;display:grid;gap:6px;transition:.18s}
+  .event:hover{transform:translateY(-1px);background:#fcfcfd;border-color:#d1d5db}
+  .event .head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#fff}
+  .pill.qual{background:var(--brand)} .pill.final{background:var(--brand2)} .pill.other{background:var(--warn)}
+  .event .title{font-weight:800}.muted{color:#6b7280}.link{color:#1f6feb;text-decoration:none;font-weight:700}.link:hover{text-decoration:underline}
+</style>
+
+<!-- данные событий RENDER до JS -->
+<script>
+  {% if events_json %}
+    window.__EVENTS__ = {{ events_json | safe }};
+  {% else %}
+    window.__EVENTS__ = [];
+  {% endif %}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="header">
+  <div class="title">Календарь соревнований</div>
+  <div class="controls">
+    <button class="icon" id="prevBtn" aria-label="Предыдущий месяц" title="Предыдущий месяц">⟨</button>
+    <div class="month-indicator" id="monthLabel">Месяц</div>
+    <button class="icon" id="nextBtn" aria-label="Следующий месяц" title="Следующий месяц">⟩</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="dot d-qual"></span>Отборочные</span>
+  <span><span class="dot d-final"></span>Финалы</span>
+  <span><span class="dot d-other"></span>Другое</span>
+  <span class="hint">Навигация: <span class="kbd">←</span> <span class="kbd">→</span></span>
+</div>
+
+<section class="calendar" aria-label="Календарь мероприятий">
+  <div class="weekdays">
+    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div>
+    <div>Пт</div><div class="wknd">Сб</div><div class="wknd">Вс</div>
+  </div>
+  <div class="grid" id="grid" role="grid"></div>
+</section>
+
+<!-- Drawer -->
+<div class="drawer" id="drawer" aria-live="polite" aria-hidden="true">
+  <div class="panel">
+    <div class="drawer-header">
+      <div class="drawer-title" id="drawerTitle">События</div>
+      <button class="close" id="closeDrawer" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="events" id="events"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const EVENTS = Array.isArray(window.__EVENTS__) ? window.__EVENTS__ : [];
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const grid = document.getElementById('grid');
+const monthLabel = document.getElementById('monthLabel');
+const drawer = document.getElementById('drawer');
+const drawerTitle = document.getElementById('drawerTitle');
+const eventsBox = document.getElementById('events');
+let view = (()=>{const d=new Date();return {y:d.getFullYear(),m:d.getMonth()};})();
+
+function fmtISO(y,m,d){const mm=String(m+1).padStart(2,'0');const dd=String(d).padStart(2,'0');return `${y}-${mm}-${dd}`;}
+function isToday(y,m,d){const t=new Date();return y===t.getFullYear()&&m===t.getMonth()&&d===t.getDate();}
+function kindDot(k){return `<span class="dot ${k==='qual'?'d-qual':k==='final'?'d-final':'d-other'}"></span>`;}
+function kindPill(ev){const k=ev.kind;const cls=k==='qual'?'qual':k==='final'?'final':'other';const label=(ev.stage&&ev.stage.trim())?ev.stage.trim():(k==='qual'?'Отборочные':k==='final'?'Финал':'Событие');return `<span class="pill ${cls}">${label}</span>`;}
+function eventsByDate(iso){return EVENTS.filter(e=>e.date===iso);}
+
+function render(){
+  const first=new Date(view.y,view.m,1);
+  const startIndex=(first.getDay()+6)%7; // Пн=0
+  const daysInMonth=new Date(view.y,view.m+1,0).getDate();
+  const prevDays=new Date(view.y,view.m,0).getDate();
+
+  monthLabel.textContent=`${MONTHS[view.m]} ${view.y}`;
+  grid.innerHTML='';
+
+  for(let i=0;i<42;i++){
+    const cell=document.createElement('button');
+    cell.className='day'; cell.type='button'; cell.setAttribute('role','gridcell');
+
+    let dayNum, y=view.y, m=view.m, out=false;
+    if(i<startIndex){ dayNum=prevDays-startIndex+i+1; m=(view.m-1+12)%12; y=view.y+(view.m===0?-1:0); out=true; }
+    else if(i>=startIndex+daysInMonth){ dayNum=i-(startIndex+daysInMonth)+1; m=(view.m+1)%12; y=view.y+(view.m===11?1:0); out=true; }
+    else { dayNum=i-startIndex+1; }
+
+    const weekday=i%7; if(weekday===5||weekday===6) cell.classList.add('wknd');
+    if(out) cell.classList.add('out');
+    if(isToday(y,m,dayNum)&&!out) cell.classList.add('today');
+
+    const iso=fmtISO(y,m,dayNum);
+    const dayEvents=eventsByDate(iso);
+
+    cell.innerHTML=`<span class="num">${dayNum}</span>`;
+    if(dayEvents.length){
+      cell.insertAdjacentHTML('beforeend', `<span class="badge">${dayEvents.length}</span>`);
+      cell.insertAdjacentHTML('beforeend', `<div class="dots">${dayEvents.slice(0,3).map(e=>kindDot(e.kind)).join('')}</div>`);
+    }
+    cell.setAttribute('aria-label', dayEvents.length ? `Событий: ${dayEvents.length}. Дата ${dayNum}.${String(m+1).padStart(2,'0')}.${y}` : `Дата ${dayNum}.${String(m+1).padStart(2,'0')}.${y}`);
+    cell.addEventListener('click', ()=>openDrawer(iso,y,m,dayNum));
+    grid.appendChild(cell);
+  }
+}
+
+function openDrawer(iso,y,m,d){
+  const list=eventsByDate(iso);
+  drawerTitle.textContent=list.length?`События на ${String(d).padStart(2,'0')}.${String(m+1).padStart(2,'0')}.${y}`:`На ${String(d).padStart(2,'0')}.${String(m+1).padStart(2,'0')}.${y} событий нет`;
+  eventsBox.innerHTML='';
+  if(list.length){
+    list.forEach(ev=>{
+      const el=document.createElement('article'); el.className='event';
+      const seriesLine=ev.series?`<div class="muted">Серия: ${ev.series}</div>`:'';
+      el.innerHTML=`<div class="head">${kindPill(ev)} <div class="title">${ev.title}</div></div>
+                    <div class="muted">Город: ${ev.city||''}</div>
+                    ${seriesLine}
+                    <div><a class="link" href="${ev.link}">Перейти на страницу соревнования →</a></div>`;
+      eventsBox.appendChild(el);
+    });
+  }
+  drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false');
+}
+function closeDrawer(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');}
+
+document.getElementById('prevBtn').addEventListener('click', ()=>{view.m--; if(view.m<0){view.m=11; view.y--;} render();});
+document.getElementById('nextBtn').addEventListener('click', ()=>{view.m++; if(view.m>11){view.m=0; view.y++;} render();});
+document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+document.getElementById('drawer').addEventListener('click', (e)=>{ if(e.target.id==='drawer') closeDrawer(); });
+window.addEventListener('keydown', (e)=>{ if(e.key==='ArrowLeft') document.getElementById('prevBtn').click(); else if(e.key==='ArrowRight') document.getElementById('nextBtn').click(); else if(e.key==='Escape') closeDrawer(); });
+
+(function boot(){
+  render();
+  const t=new Date(); const todayISO=fmtISO(t.getFullYear(),t.getMonth(),t.getDate());
+  const firstUpcoming=EVENTS.find(e=>e.date>=todayISO);
+  if(firstUpcoming){ const d=new Date(firstUpcoming.date); view={y:d.getFullYear(),m:d.getMonth()}; render(); }
+})();
+</script>
+{% endblock %}

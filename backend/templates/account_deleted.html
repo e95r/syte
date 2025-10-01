@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Аккаунт удалён — SwimReg{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="card">
+    <h1>Аккаунт удалён</h1>
+    <p>Аккаунт, привязанный к адресу {{ email }}, был удалён вместе со всеми заявками и напоминаниями.</p>
+    <p>Нам жаль, что вы уходите. Если передумаете — вы всегда можете зарегистрироваться снова.</p>
+    <div class="card-footer">
+      <a class="btn primary" href="/">На главную</a>
+      <a class="btn" href="/auth/register">Создать новый аккаунт</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

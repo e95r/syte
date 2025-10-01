@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: swimdb
+          POSTGRES_USER: swimuser
+          POSTGRES_PASSWORD: s3curePg2025!
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U swimuser -d swimdb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci-secret
+      DATABASE_URL: postgresql+psycopg2://swimuser:s3curePg2025!@localhost:5432/swimdb
+      MEDIA_DIR: ${{ github.workspace }}/tmp/media
+      DOCS_DIR: ${{ github.workspace }}/tmp/docs
+      RESULTS_DIR: ${{ github.workspace }}/tmp/results
+      STATIC_DIR: ${{ github.workspace }}/tmp/static
+      REDIS_URL: redis://localhost:6379/0
+      S3_ENDPOINT: http://localhost:9000
+      S3_BUCKET: swimreg-ci
+      S3_ACCESS_KEY: test-access
+      S3_SECRET_KEY: test-secret
+      S3_REGION: us-east-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Prepare filesystem
+        run: |
+          mkdir -p "$MEDIA_DIR" "$DOCS_DIR" "$RESULTS_DIR" "$STATIC_DIR"
+
+      - name: Database migrations
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Run backend tests
+        working-directory: backend
+        run: pytest -q
+
+      - name: Frontend check (skipped if absent)
+        run: |
+          if [ -d frontend ]; then
+            echo "Frontend directory detected. Configure frontend checks as needed."
+          else
+            echo "No frontend directory detected; skipping frontend checks."
+          fi

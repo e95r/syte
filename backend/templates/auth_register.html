@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Регистрация — SwimReg{% endblock %}
+{% block content %}
+<section class="grid-two">
+  <div class="card" style="max-width:520px;">
+    <h1>Создать аккаунт</h1>
+    <p class="muted">Заполните форму, чтобы зарегистрироваться и быстро подавать заявки на соревнования.</p>
+    <form class="form-grid" method="post" action="/auth/register" style="gap:14px;">
+      <label>E-mail
+        <input name="email" type="email" required autocomplete="email" value="{{ email|default('', true) }}">
+      </label>
+      <label>Имя пользователя
+        <input name="username" required autocomplete="username" value="{{ username|default('', true) }}">
+      </label>
+      <label>ФИО
+        <input name="full_name" value="{{ full_name|default('', true) }}" placeholder="Иванов Иван Иванович">
+      </label>
+      <label>Пароль
+        <input name="password" type="password" required autocomplete="new-password">
+      </label>
+      <label class="checkbox">
+        <input name="personal_data_consent" type="checkbox" required {% if consent_checked|default(false) %}checked{% endif %}>
+        <span class="checkbox__box" aria-hidden="true"></span>
+        <span class="checkbox__text">Даю разрешение на обработку персональных данных</span>
+      </label>
+      <button class="btn primary" type="submit">Создать аккаунт</button>
+    </form>
+    <div class="card-footer">
+      <span class="muted">Уже зарегистрированы?</span>
+      <a class="btn" href="/auth/login">Войти</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+{% if error is defined and error %}
+<script>
+  showToast({{ error|tojson }}, 'error', {dismissible:true, duration:9000});
+</script>
+{% endif %}
+{% endblock %}

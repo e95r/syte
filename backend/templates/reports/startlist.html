@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>Стартовый протокол — {{ competition.title }}</title>
+    <style>
+        @page {
+            margin: 20mm 16mm;
+        }
+
+        body {
+            font-family: "DejaVu Sans", "Arial", sans-serif;
+            font-size: 12px;
+            color: #1f2933;
+        }
+
+        header {
+            border-bottom: 2px solid #0b7285;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin: 0;
+            color: #0b7285;
+            text-transform: uppercase;
+        }
+
+        .meta {
+            margin-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .meta div {
+            min-width: 180px;
+        }
+
+        .section-title {
+            margin: 28px 0 10px;
+            font-size: 18px;
+            color: #0b7285;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+        }
+
+        th, td {
+            border: 1px solid #d0d7de;
+            padding: 6px 8px;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.03em;
+        }
+
+        tbody tr:nth-child(odd) td {
+            background-color: #fbfdff;
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 22px;
+        }
+
+        .team-header h2 {
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .team-header span {
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        .team-contacts {
+            font-size: 11px;
+            color: #4b5563;
+            margin: 6px 0 10px;
+        }
+
+        .summary-table td:first-child,
+        .summary-table th:first-child {
+            text-align: left;
+        }
+
+        .summary-table td:last-child,
+        .summary-table th:last-child {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        footer {
+            position: running(footer);
+            font-size: 10px;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            padding: 18px;
+            background: #fff3bf;
+            border: 1px solid #ffe066;
+            border-radius: 4px;
+            margin: 16px 0;
+            color: #856404;
+        }
+
+        .generated-at {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Стартовый протокол</h1>
+    <div class="meta">
+        <div>
+            <strong>Соревнование:</strong><br>
+            {{ competition.title }}
+        </div>
+        <div>
+            <strong>Место проведения:</strong><br>
+            {{ competition.city or "—" }}{% if competition.pool_name %}, {{ competition.pool_name }}{% endif %}
+        </div>
+        <div>
+            <strong>Даты:</strong><br>
+            {% if competition.start_date %}{{ competition.start_date.strftime('%d.%m.%Y %H:%M') }}{% else %}—{% endif %}
+            {% if competition.end_date and competition.end_date.date() != competition.start_date.date() %}
+                &nbsp;–&nbsp;{{ competition.end_date.strftime('%d.%m.%Y %H:%M') }}
+            {% endif %}
+        </div>
+        <div>
+            <strong>Подготовлено:</strong><br>
+            {{ generated_at.strftime('%d.%m.%Y %H:%M') }}
+        </div>
+    </div>
+</header>
+
+<section>
+    <h2 class="section-title">Сводка по дистанциям</h2>
+    {% if distance_summary %}
+    <table class="summary-table">
+        <thead>
+        <tr>
+            <th>Дистанция</th>
+            <th>Участников</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for distance, count in distance_summary %}
+        <tr>
+            <td>{{ distance }}</td>
+            <td>{{ '%d'|format(count) }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <th>Всего участников</th>
+            <th>{{ '%d'|format(total_participants) }}</th>
+        </tr>
+        </tbody>
+    </table>
+    {% else %}
+        <div class="empty-state">
+            По данному старту пока нет зарегистрированных участников.
+        </div>
+    {% endif %}
+</section>
+
+<section>
+    <h2 class="section-title">Команды и участники</h2>
+    {% if teams %}
+        {% for team in teams %}
+        <div class="team-block">
+            <div class="team-header">
+                <h2>{{ loop.index }}. {{ team.team_summary }}</h2>
+                <span>{{ team.status }}</span>
+            </div>
+            <div class="team-contacts">
+                Представитель: {{ team.representative_name }}
+                {% if team.representative_phone %} | Тел.: {{ team.representative_phone }}{% endif %}
+                {% if team.representative_email %} | E-mail: {{ team.representative_email }}{% endif %}
+            </div>
+            {% if team.participants %}
+            <table>
+                <thead>
+                <tr>
+                    <th style="width: 36px;">№</th>
+                    <th>ФИО</th>
+                    <th style="width: 60px;">Пол</th>
+                    <th style="width: 95px;">Дата рождения</th>
+                    <th style="width: 120px;">Возрастная категория</th>
+                    <th style="width: 110px;">Дистанция</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for participant in team.participants %}
+                <tr>
+                    <td style="text-align: center;">{{ loop.index }}</td>
+                    <td>{{ participant.full_name }}</td>
+                    <td style="text-align: center;">{{ participant.gender }}</td>
+                    <td style="text-align: center;">{{ participant.birth_date }}</td>
+                    <td>{{ participant.age_category }}</td>
+                    <td>{{ participant.distance }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                Команда зарегистрирована, но список участников пока пуст.
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            Командные заявки ещё не были поданы.
+        </div>
+    {% endif %}
+</section>
+
+<footer>
+    Документ сгенерирован автоматически системой {{ request.app.title if request.app else 'SwimReg' }}.
+    <div class="generated-at">URL отчёта: {{ request.url }}</div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-section">
+  <h1>Новости</h1>
+  {% for n in items %}
+    <article class="card" id="{{ n.slug }}" style="gap:16px;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <h2 style="margin:0;">{{ n.title }}</h2>
+        <span class="muted">{{ n.published_at.strftime("%d.%m.%Y") }}</span>
+      </div>
+      {% if n.cover_image %}
+        <div class="media-frame media-frame--news">
+          <img src="{{ n.cover_image }}" alt="{{ n.title }}">
+        </div>
+      {% endif %}
+      <div>{{ n.body|safe }}</div>
+    </article>
+  {% else %}
+    <div class="empty-state">Пока нет новостей — скоро здесь появятся свежие материалы.</div>
+  {% endfor %}
+</section>
+{% endblock %}

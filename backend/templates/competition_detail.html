@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-section">
+  <div class="card" style="gap:20px;">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <h1 style="margin-bottom:0;">{{ c.title }}</h1>
+      {% if c.series or c.stage %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          {% if c.series %}<span class="chip">Серия: {{ c.series.name }}</span>{% endif %}
+          {% if c.stage %}<span class="chip">{{ c.stage }}</span>{% endif %}
+        </div>
+      {% endif %}
+      <div class="muted" style="font-size:1rem;">
+        <strong>Когда:</strong>
+        {{ c.start_date.strftime("%d.%m.%Y") }}
+        {% if c.end_date %}–{{ c.end_date.strftime("%d.%m.%Y") }}{% endif %}<br>
+        <strong>Где:</strong>
+        {{ c.city }}{% if c.pool_name %} / {{ c.pool_name }}{% endif %}{% if c.address %} — {{ c.address }}{% endif %}
+        {% if c.series or c.stage %}<br>
+          {% if c.series %}<strong>Серия:</strong> {{ c.series.name }}{% if c.stage %} — {{ c.stage }}{% endif %}
+          {% elif c.stage %}<strong>Этап:</strong> {{ c.stage }}
+          {% endif %}
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        {% if c.is_open %}
+          <a class="btn primary" href="/competitions/{{ c.slug }}/register">Регистрация (форма)</a>
+        {% endif %}
+        {% if c.regulation_pdf %}<a class="btn" href="{{ c.regulation_pdf }}" target="_blank">Положение (PDF)</a>{% endif %}
+        {% if c.live_stream_url %}<a class="btn" href="{{ c.live_stream_url }}" target="_blank">Трансляция</a>{% endif %}
+      </div>
+    </div>
+    {% if c.hero_image %}
+      <div class="media-frame media-frame--competition">
+        <img src="{{ c.hero_image }}" alt="{{ c.title }}">
+      </div>
+    {% endif %}
+  </div>
+
+  {% if c.is_open %}
+  <section class="card" style="max-width:560px;">
+    <h2>Быстрая регистрация одним кликом</h2>
+    {% set _uid = request.session.get('uid') if request.session else None %}
+    {% if _uid %}
+      <form class="form-grid" method="post" action="/competitions/{{ c.slug }}/quick-register" style="gap:12px;">
+        <label>Дистанция (необязательно)
+          <input name="distance" placeholder="например: 50 в/с">
+        </label>
+        <button class="btn primary" type="submit">Записаться из профиля</button>
+        <div class="muted">Мы возьмём ФИО, пол, дату рождения и контакты из вашего профиля.</div>
+        <div><a class="btn" href="/account">Перейти в профиль</a></div>
+      </form>
+    {% else %}
+      <p class="muted">Чтобы зарегистрироваться одним кликом, войдите или создайте аккаунт.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn primary" href="/auth/login">Войти</a>
+        <a class="btn" href="/auth/register">Регистрация</a>
+      </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Результаты</h2>
+    <ul style="margin:0;padding-left:20px;">
+      {% for r in results %}
+        <li><a href="{{ r.file_path }}" target="_blank">{{ r.label }} ({{ r.kind|upper }})</a></li>
+      {% else %}
+        <li>Пока нет результатов</li>
+      {% endfor %}
+    </ul>
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  (function(){
+    const params = new URLSearchParams(window.location.search);
+    const registered = params.get('registered');
+    const quick = params.get('quick');
+    let hadParams = false;
+    if(registered === 'success'){
+      showToast('Заявка отправлена организатору. Мы уведомим о решении по e-mail.', 'success');
+      hadParams = true;
+    }
+    if(registered === 'exists'){
+      showToast('Вы уже подали заявку на это соревнование.', 'info');
+      hadParams = true;
+    }
+    if(registered === 'error'){
+      showToast('Не удалось оформить заявку. Попробуйте ещё раз.', 'error', {dismissible:true});
+      hadParams = true;
+    }
+    if(quick === 'success'){
+      showToast('Быстрая регистрация отправлена. Статус можно отследить в личном кабинете.', 'success');
+      hadParams = true;
+    }
+    if(quick === 'exists'){
+      showToast('Вы уже зарегистрированы на этот старт.', 'info');
+      hadParams = true;
+    }
+    if(quick === 'error'){
+      showToast('Не удалось оформить быструю регистрацию. Попробуйте ещё раз.', 'error', {dismissible:true});
+      hadParams = true;
+    }
+    if(quick === 'profile'){
+      showToast('Заполните профиль, чтобы использовать быструю регистрацию.', 'error', {dismissible:true});
+      hadParams = true;
+    }
+    if(hadParams){
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-section">
+  <section class="admin-hero">
+    <div>
+      <h1 class="admin-hero__title">Заявки на участие</h1>
+      <p class="admin-hero__subtitle">Проверяйте команды, оперативно подтверждайте их участие и следите за контактами представителей.</p>
+    </div>
+    <div class="admin-hero__actions">
+      <a class="btn" href="/admin">Назад в панель</a>
+      <a class="btn primary" href="/admin/registrations/export.xlsx">Скачать Excel</a>
+      {% if current_status == "active" %}
+        <form method="post" action="/admin/registrations/clear" onsubmit="return confirmMoveAllToTrash();" style="margin:0;">
+          <input type="hidden" name="target" value="active">
+          <input type="hidden" name="return_to" value="{{ return_to }}">
+          <button class="btn danger" type="submit">Переместить всё в корзину</button>
+        </form>
+      {% else %}
+        <form method="post" action="/admin/registrations/clear" onsubmit="return confirmEmptyTrash();" style="margin:0;">
+          <input type="hidden" name="target" value="trash">
+          <input type="hidden" name="return_to" value="{{ return_to }}">
+          <button class="btn danger" type="submit">Очистить корзину</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="admin-card">
+    <div class="admin-card__header" style="flex-wrap:wrap;gap:1rem;align-items:flex-start;">
+      <div>
+        <h2 class="admin-card__title">Заявки команд</h2>
+        <div style="margin-top:0.25rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+          <a class="btn {% if current_status != 'trash' %}primary{% endif %}" href="/admin/registrations?status=active">Активные ({{ active_count }})</a>
+          <a class="btn {% if current_status == 'trash' %}primary{% endif %}" href="/admin/registrations?status=trash">Корзина ({{ trash_count }})</a>
+        </div>
+      </div>
+      <form method="get" action="/admin/registrations" class="admin-search" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+        <input type="hidden" name="status" value="{{ current_status }}">
+        <input type="search" name="q" value="{{ search_query }}" placeholder="Поиск по команде, имени или email" class="input" style="min-width:18rem;">
+        <button class="btn" type="submit">Искать</button>
+        {% if search_query %}
+          <a class="btn" href="/admin/registrations?status={{ current_status }}">Сбросить</a>
+        {% endif %}
+      </form>
+    </div>
+    <p class="admin-card__description">
+      {% if current_status == "trash" %}
+        В корзине хранятся удалённые заявки. Вы можете восстановить их или удалить окончательно.
+      {% else %}
+        Выберите действие для каждой команды: подтвердите участие, отклоните заявку или переместите её в корзину.
+      {% endif %}
+      {% if search_query %}
+        <br><span class="muted">Поиск: «{{ search_query }}»</span>
+      {% endif %}
+    </p>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Старт</th>
+            <th>Заявка</th>
+            <th>Статус</th>
+            <th>Создано</th>
+            <th>Представитель</th>
+            <th>Участников</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if grouped_registrations %}
+            {% for group in grouped_registrations %}
+              <tr class="table-group-row">
+                <td colspan="8" style="background:var(--table-header-bg,#f4f6fb);font-weight:600;">
+                  {% if group.competition %}
+                    {{ group.competition.title }}
+                    <div class="muted" style="font-weight:400;font-size:0.875rem;">
+                      {{ group.competition.start_date.strftime('%d.%m.%Y') if group.competition.start_date else '' }}
+                      {% if group.competition.city %} · {{ group.competition.city }}{% endif %}
+                    </div>
+                  {% else %}
+                    Без привязки к соревнованию
+                  {% endif %}
+                </td>
+              </tr>
+              {% for r in group.registrations %}
+                <tr>
+                  <td>{{ r.id }}</td>
+                  <td>{{ group.competition.title if group.competition else "" }}</td>
+                  <td>{{ r.team_summary }}</td>
+                  <td>
+                    <span class="badge">{{ r.status }}</span>
+                    {% if r.is_deleted and r.deleted_at %}
+                      <div class="muted" style="font-size:0.75rem;margin-top:0.25rem;">Удалено {{ r.deleted_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                    {% endif %}
+                  </td>
+                  <td>{{ r.created_at.strftime("%d.%m.%Y %H:%M") if r.created_at else "" }}</td>
+                  <td>
+                    {{ r.representative_name }}<br>
+                    {{ r.representative_phone }}<br>
+                    {{ r.representative_email }}
+                  </td>
+                  <td>{{ r.members_count }}</td>
+                  <td>
+                    <div class="table-actions">
+                      {% if current_status != "trash" %}
+                        <form method="post" action="/admin/registrations/{{ r.id }}/approve">
+                          <input type="hidden" name="return_to" value="{{ return_to }}">
+                          <button class="btn primary" type="submit">Одобрить</button>
+                        </form>
+                        <form method="post" action="/admin/registrations/{{ r.id }}/reject">
+                          <input type="hidden" name="return_to" value="{{ return_to }}">
+                          <button class="btn danger" type="submit">Отклонить</button>
+                        </form>
+                        <form method="post" action="/admin/registrations/{{ r.id }}/delete" onsubmit="return confirmDeleteSingle();">
+                          <input type="hidden" name="return_to" value="{{ return_to }}">
+                          <button class="btn danger" type="submit">Удалить</button>
+                        </form>
+                      {% else %}
+                        <form method="post" action="/admin/registrations/{{ r.id }}/restore">
+                          <input type="hidden" name="return_to" value="{{ return_to }}">
+                          <button class="btn primary" type="submit">Восстановить</button>
+                        </form>
+                        <form method="post" action="/admin/registrations/{{ r.id }}/purge" onsubmit="return confirmPurgeSingle();">
+                          <input type="hidden" name="return_to" value="{{ return_to }}">
+                          <button class="btn danger" type="submit">Удалить навсегда</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align:center">
+                {% if current_status == "trash" %}
+                  Корзина пуста.
+                {% elif search_query %}
+                  Не найдено заявок, подходящих под запрос.
+                {% else %}
+                  Заявок пока нет.
+                {% endif %}
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function confirmMoveAllToTrash() {
+    return window.confirm('Переместить все активные заявки в корзину?');
+  }
+
+  function confirmEmptyTrash() {
+    const prompts = [
+      'Очистить корзину? Это удалит все заявки без возможности восстановления.',
+      'Точно удалить навсегда?'
+    ];
+    for (const message of prompts) {
+      if (!window.confirm(message)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function confirmDeleteSingle() {
+    return window.confirm('Переместить заявку в корзину?');
+  }
+
+  function confirmPurgeSingle() {
+    return window.confirm('Удалить заявку без возможности восстановления?');
+  }
+</script>
+{% endblock %}

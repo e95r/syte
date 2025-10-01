@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block head %}
+<style>
+  .section {
+    margin-top: 72px;
+  }
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+  }
+  .section-lead {
+    color: var(--muted);
+    max-width: 540px;
+    font-size: 1rem;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.14);
+    color: #0369a1;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+  }
+  .hero {
+    margin-top: 40px;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.95fr);
+    gap: clamp(24px, 5vw, 60px);
+    align-items: center;
+    padding: clamp(32px, 6vw, 72px);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 60%),
+                linear-gradient(130deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.22)),
+                var(--surface-solid);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(37, 99, 235, 0.22);
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 338" preserveAspectRatio="none"><path fill="%23bfdbfe" fill-opacity="0.35" d="M0 233l25-13c25-13 75-40 125-53 50-14 100-14 150-8s100 21 150 21c50-1 100-15 150-30s100-30 125-38l25-7v233H0z"/><path fill="%231d4ed8" fill-opacity="0.08" d="M0 180l25-13c25-13 75-40 125-47s100 7 150 23 100 33 150 27 100-41 150-40 100 37 125 53l25 17v138H0z"/></svg>') no-repeat bottom / cover;
+    opacity: 0.6;
+    mix-blend-mode: lighten;
+    pointer-events: none;
+  }
+  .hero__content { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 22px; }
+  .hero__content p { max-width: 520px; color: var(--muted); font-size: 1.05rem; }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+  .hero-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-top: 12px; }
+  .metric-card { background: rgba(255, 255, 255, 0.85); border-radius: 18px; padding: 18px 20px; border: 1px solid rgba(148, 163, 184, 0.25); display: flex; flex-direction: column; gap: 6px; backdrop-filter: blur(12px); }
+  .metric-card span { font-size: 2.1rem; font-weight: 800; color: var(--primary); line-height: 1; }
+  .hero__aside { position: relative; z-index: 1; }
+  .hero-card { background: rgba(15, 23, 42, 0.82); color: #f8fafc; border-radius: 26px; padding: 32px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 40px 80px rgba(2, 6, 23, 0.45); border: 1px solid rgba(148, 163, 184, 0.22); }
+  .hero-card__badge { display: inline-flex; padding: 6px 14px; border-radius: 999px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-size: 0.75rem; }
+  .hero-card__title { font-size: 1.5rem; margin: 0; }
+  .hero-card__meta { display: grid; gap: 6px; color: rgba(226, 232, 240, 0.9); font-size: 0.95rem; }
+  .hero-card__message { font-size: 1.05rem; line-height: 1.6; }
+  .hero-card__cta { margin-top: 12px; }
+
+  .programs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+  .program-card { position: relative; background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 26px; padding: 28px; box-shadow: 0 24px 56px rgba(15, 23, 42, 0.12); display: flex; flex-direction: column; gap: 16px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .program-card:hover { transform: translateY(-6px); box-shadow: 0 32px 72px rgba(29, 78, 216, 0.18); }
+  .program-icon { width: 56px; height: 56px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem; background: rgba(56, 189, 248, 0.18); color: #0369a1; }
+  .program-card p { color: var(--muted); font-size: 0.98rem; }
+
+  .spotlight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
+  .spotlight-card { background: rgba(255, 255, 255, 0.94); border-radius: 26px; padding: 32px; border: 1px solid rgba(148, 163, 184, 0.26); box-shadow: 0 28px 60px rgba(30, 64, 175, 0.16); display: flex; flex-direction: column; gap: 22px; }
+  .spotlight-card header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+  .spotlight-card header a { color: var(--primary); font-weight: 600; }
+  .spotlight-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; }
+  .spotlight-item { display: grid; gap: 6px; padding-bottom: 18px; border-bottom: 1px solid rgba(148, 163, 184, 0.2); }
+  .spotlight-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .spotlight-item strong { font-size: 1.05rem; }
+  .spotlight-meta { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 0.92rem; }
+  .spotlight-item .btn { align-self: flex-start; }
+
+  .cta-banner { margin-top: 88px; position: relative; overflow: hidden; border-radius: var(--radius-lg); background: linear-gradient(125deg, #0f172a, #1d4ed8 55%, #0ea5e9); color: #f8fafc; padding: clamp(32px, 6vw, 64px); box-shadow: 0 40px 80px rgba(15, 23, 42, 0.26); display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; }
+  .cta-banner::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at right, rgba(148, 163, 184, 0.22), transparent 58%); opacity: 0.9; }
+  .cta-banner-content { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 14px; }
+  .cta-banner-actions { position: relative; z-index: 1; display: flex; gap: 14px; flex-wrap: wrap; }
+  .cta-banner .btn { color: inherit; }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-card { order: -1; }
+  }
+  @media (max-width: 720px) {
+    .section { margin-top: 56px; }
+    .section-heading { flex-direction: column; align-items: flex-start; }
+    .cta-banner { grid-template-columns: 1fr; text-align: center; }
+    .cta-banner-content { align-items: center; }
+    .cta-banner-actions { justify-content: center; }
+  }
+  @media (max-width: 520px) {
+    .hero { padding: 28px; }
+    .hero-card { padding: 26px; }
+    .program-card { padding: 24px; }
+    .spotlight-card { padding: 26px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set upcoming_count = comps | length %}
+{% set news_count = news | length %}
+{% set next_comp = comps[0] if comps else None %}
+
+<section class="hero" id="top">
+  <div class="hero__content">
+    <span class="eyebrow">Профессиональное плавание</span>
+    <h1>SwimReg — цифровой клуб для спортсменов и тренеров</h1>
+    <p>Следите за календарём, регистрируйтесь на соревнования и получайте актуальные новости федерации плавания в единой современной платформе.</p>
+    <div class="hero-actions">
+      <a class="btn primary" href="/auth/register">Подать заявку на старт</a>
+      <a class="btn ghost" href="#programs">Программы и услуги</a>
+    </div>
+    <div class="hero-metrics" aria-label="Ключевые показатели платформы">
+      <div class="metric-card">
+        <span>{{ upcoming_count }}</span>
+        ближайших стартов в календаре
+      </div>
+      <div class="metric-card">
+        <span>{{ news_count }}</span>
+        свежих публикаций федерации
+      </div>
+      <div class="metric-card">
+        <span>480+</span>
+        тренеров и организаторов в сети SwimReg
+      </div>
+    </div>
+  </div>
+  <aside class="hero__aside">
+    <div class="hero-card">
+      <div class="hero-card__badge">Ближайший старт</div>
+      {% if next_comp %}
+        <h3 class="hero-card__title">{{ next_comp.title }}</h3>
+        <div class="hero-card__meta">
+          {% if next_comp.start_date %}
+            <span>Дата: {{ next_comp.start_date.strftime('%d.%m.%Y') }}{% if next_comp.end_date %} – {{ next_comp.end_date.strftime('%d.%m.%Y') }}{% endif %}</span>
+          {% endif %}
+          {% if next_comp.city or next_comp.pool %}
+            <span>Локация: {{ next_comp.city or "уточняется" }}{% if next_comp.pool %}, {{ next_comp.pool }}{% endif %}</span>
+          {% endif %}
+        </div>
+        <div class="hero-card__cta">
+          <a class="btn ghost" href="/competitions/{{ next_comp.slug }}">Подробнее о старте</a>
+        </div>
+      {% else %}
+        <h3 class="hero-card__title">Расписание готовится</h3>
+        <div class="hero-card__meta hero-card__message">Мы обновляем календарь соревнований. Подпишитесь на новости, чтобы первыми узнать о стартах и сборах.</div>
+        <div class="hero-card__cta">
+          <a class="btn ghost" href="/news">Перейти к новостям</a>
+        </div>
+      {% endif %}
+    </div>
+  </aside>
+</section>
+
+<section class="section" aria-labelledby="spotlight-title">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">Повестка SwimReg</span>
+      <h2 id="spotlight-title">Следите за стартами и новостями федерации</h2>
+    </div>
+  </div>
+  <div class="spotlight-grid">
+    <article class="spotlight-card" aria-labelledby="upcoming-title">
+      <header>
+        <div>
+          <span class="eyebrow">Календарь</span>
+          <h3 id="upcoming-title">Ближайшие соревнования</h3>
+        </div>
+        <a href="/calendar">Весь календарь</a>
+      </header>
+      {% if comps %}
+        <ul class="spotlight-list">
+          {% for c in comps[:4] %}
+            <li class="spotlight-item">
+              <strong>{{ c.title }}</strong>
+              <div class="spotlight-meta">
+                {% if c.start_date %}
+                  <span>📅 {{ c.start_date.strftime('%d.%m.%Y') }}{% if c.end_date %} – {{ c.end_date.strftime('%d.%m.%Y') }}{% endif %}</span>
+                {% endif %}
+                {% if c.city or c.pool %}
+                  <span>📍 {{ c.city or "уточняется" }}{% if c.pool %}, {{ c.pool }}{% endif %}</span>
+                {% endif %}
+              </div>
+              <a class="btn ghost" href="/competitions/{{ c.slug }}">Регистрация</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">Пока нет опубликованных стартов. Подпишитесь на новости, чтобы узнать о новых соревнованиях первыми.</div>
+      {% endif %}
+    </article>
+
+    <article class="spotlight-card" aria-labelledby="news-title">
+      <header>
+        <div>
+          <span class="eyebrow">Новости</span>
+          <h3 id="news-title">Свежие публикации</h3>
+        </div>
+        <a href="/news">Все новости</a>
+      </header>
+      {% if news %}
+        <ul class="spotlight-list">
+          {% for item in news[:4] %}
+            {% set preview = item.lead or (item.body[:160] if item.body else '') %}
+            <li class="spotlight-item">
+              <strong>{{ item.title }}</strong>
+              <div class="spotlight-meta">
+                {% if item.published_at %}
+                  <span>📅 {{ item.published_at.strftime('%d.%m.%Y') }}</span>
+                {% endif %}
+              </div>
+              <p class="section-lead" style="margin:0">{{ preview }}{% if not item.lead and item.body and item.body|length > 160 %}…{% endif %}</p>
+              <a class="btn ghost" href="/news#{{ item.id }}">Читать полностью</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state">Новости пока не опубликованы. Совсем скоро мы расскажем о новых событиях в мире плавания.</div>
+      {% endif %}
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% block content %}
+{% set next_comp = comps[0] if comps else None %}
+{% set active_tab = request.query_params.get('tab') or 'overview' %}
+{% if active_tab not in ['overview', 'competitions', 'news', 'integrations', 'pages'] %}
+  {% set active_tab = 'overview' %}
+{% endif %}
+<div class="page-section">
+  <div class="admin-tabs" data-default-tab="{{ active_tab }}">
+    <div class="admin-tabs__nav" role="tablist">
+      <button type="button" class="admin-tab-link" data-tab-button="overview" role="tab" aria-selected="false">Сводка</button>
+      <button type="button" class="admin-tab-link" data-tab-button="competitions" role="tab" aria-selected="false">Соревнования</button>
+      <button type="button" class="admin-tab-link" data-tab-button="news" role="tab" aria-selected="false">Новости</button>
+      <button type="button" class="admin-tab-link" data-tab-button="integrations" role="tab" aria-selected="false">Интеграции</button>
+      <button type="button" class="admin-tab-link" data-tab-button="pages" role="tab" aria-selected="false">Страницы</button>
+    </div>
+
+    <div class="admin-tabs__panels">
+      <section class="admin-tab" data-tab-panel="overview" hidden>
+        <section class="admin-hero">
+          <div>
+            <h1 class="admin-hero__title">Панель управления</h1>
+            <p class="admin-hero__subtitle">
+              {% if next_comp %}
+                Следите за стартом «{{ next_comp.title }}» — начало {{ next_comp.start_date.strftime('%d.%m.%Y') }}.
+              {% else %}
+                Создавайте старты, публикуйте новости и управляйте заявками участников в одном месте.
+              {% endif %}
+            </p>
+          </div>
+          <div class="admin-hero__actions">
+            <a class="btn primary" href="/admin/registrations">Заявки на модерацию</a>
+            <a class="btn" href="/admin/registrations/export.xlsx">Экспорт заявок</a>
+          </div>
+        </section>
+
+        <div class="admin-stats">
+          <div class="admin-stat">
+            <div class="admin-stat__label">Активных стартов</div>
+            <div class="admin-stat__value">{{ comps|length }}</div>
+            <div class="admin-stat__meta">Соревнования, доступные на сайте для участников.</div>
+          </div>
+          <div class="admin-stat">
+            <div class="admin-stat__label">Опубликовано новостей</div>
+            <div class="admin-stat__value">{{ news|length }}</div>
+            <div class="admin-stat__meta">Материалы в публичном разделе «Новости».</div>
+          </div>
+          <div class="admin-stat">
+            <div class="admin-stat__label">Ближайший старт</div>
+            <div class="admin-stat__value">
+              {% if next_comp %}{{ next_comp.start_date.strftime('%d.%m.%Y') }}{% else %}&mdash;{% endif %}
+            </div>
+            <div class="admin-stat__meta">
+              {% if next_comp %}
+                {{ next_comp.title }}{% if next_comp.city %}, {{ next_comp.city }}{% endif %}
+              {% else %}
+                Добавьте новое соревнование, чтобы старт появился в расписании.
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="admin-tab" data-tab-panel="competitions" hidden>
+        <div class="admin-grid">
+          <section class="admin-card">
+            <div class="admin-card__header">
+              <h2 class="admin-card__title">Создать соревнование</h2>
+            </div>
+            <p class="admin-card__description">Заполните основные данные, чтобы старт появился на сайте и открылся приём заявок.</p>
+            <form class="form-grid" method="post" action="/admin/competitions/create" enctype="multipart/form-data">
+              <label>Название
+                <input name="title" required>
+              </label>
+              <label>Город
+                <input name="city">
+              </label>
+              <label>Бассейн
+                <input name="pool_name">
+              </label>
+              <label>Адрес
+                <input name="address">
+              </label>
+              <label>Этап соревнования
+                <input name="stage" list="stage-options" placeholder="например: Серия или Финал">
+              </label>
+              <label>Серия турнира
+                <select name="series_id">
+                  <option value="">Без серии</option>
+                  {% for s in series_list %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+                </select>
+              </label>
+              <label>Новая серия (если нужно создать)
+                <input name="new_series_name" placeholder="Например: Кубок клуба 2024">
+              </label>
+              <label>Начало
+                <input type="datetime-local" name="start_date" required>
+              </label>
+              <label>Окончание
+                <input type="datetime-local" name="end_date">
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="is_open" checked>
+                <span class="checkbox__box" aria-hidden="true"></span>
+                <span class="checkbox__text">Регистрация открыта</span>
+              </label>
+              <label>Ссылка на трансляцию
+                <input name="live_stream_url">
+              </label>
+              <label>Обложка
+                <input type="file" name="hero">
+              </label>
+              <label>Положение (PDF)
+                <input type="file" name="regulation" accept="application/pdf">
+              </label>
+              <button class="btn primary" type="submit">Создать старт</button>
+            </form>
+            <datalist id="stage-options">
+              <option value="Серия"></option>
+              <option value="Квалификация"></option>
+              <option value="Четвертьфинал"></option>
+              <option value="Полуфинал"></option>
+              <option value="Финал"></option>
+              <option value="Суперфинал"></option>
+            </datalist>
+          </section>
+
+          <section class="admin-card">
+            <div class="admin-card__header">
+              <h2 class="admin-card__title">Загрузить результаты</h2>
+            </div>
+            <p class="admin-card__description">Опубликуйте протоколы, чтобы участники могли скачать их сразу после завершения заплывов.</p>
+            <form class="form-grid" method="post" action="/admin/competitions/{{ comps[0].slug if comps else '' }}/results/upload" enctype="multipart/form-data">
+              <label>Соревнование
+                <select name="slug" onchange="this.form.action='/admin/competitions/'+this.value+'/results/upload'">
+                  {% for c in comps %}<option value="{{ c.slug }}">{{ c.title }}</option>{% endfor %}
+                </select>
+              </label>
+              <label>Ярлык
+                <input name="label" value="Итог">
+              </label>
+              <label>Тип файла
+                <select name="kind">
+                  <option value="pdf">PDF</option>
+                  <option value="csv">CSV</option>
+                </select>
+              </label>
+              <label>Файл
+                <input type="file" name="file" required>
+              </label>
+              <button class="btn primary" type="submit">Загрузить файл</button>
+            </form>
+          </section>
+        </div>
+
+        <section class="admin-card">
+          <div class="admin-card__header">
+            <h2 class="admin-card__title">Текущие старты</h2>
+          </div>
+          {% if comps %}
+            <ul class="admin-list">
+              {% for c in comps %}
+                <li class="admin-list__item">
+                  <div class="admin-list__info">
+                    <a href="/competitions/{{ c.slug }}"><strong>{{ c.title }}</strong></a>
+                    <div class="admin-list__meta">
+                      <span>{{ c.start_date.strftime('%d.%m.%Y') }}{% if c.end_date %} – {{ c.end_date.strftime('%d.%m.%Y') }}{% endif %}</span>
+                      {% if c.city %}<span>{{ c.city }}</span>{% endif %}
+                      {% if c.series %}<span>Серия: {{ c.series.name }}</span>{% endif %}
+                      {% if c.stage %}<span>Этап: {{ c.stage }}</span>{% endif %}
+                    </div>
+                    <form class="admin-series-form" method="post" action="/admin/competitions/{{ c.id }}/series" style="margin-top:12px;display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end;">
+                      <label>Серия
+                        <select name="series_id">
+                          <option value="">Без серии</option>
+                          {% for s in series_list %}<option value="{{ s.id }}" {% if c.series and c.series.id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+                        </select>
+                      </label>
+                      <label>Новая серия
+                        <input name="new_series_name" placeholder="Создать новую серию">
+                      </label>
+                      <label>Этап
+                        <input name="stage" value="{{ c.stage }}" list="stage-options" placeholder="Например: Финал">
+                      </label>
+                      <button class="btn" type="submit">Сохранить</button>
+                    </form>
+                    {% if c.results %}
+                      <ul class="admin-sublist">
+                        {% for r in c.results %}
+                          <li>
+                            <a class="btn" href="{{ r.file_path }}" target="_blank">{{ r.label }} ({{ r.kind|upper }})</a>
+                            <form method="post" action="/admin/results/{{ r.id }}/delete" onsubmit="return confirm('Удалить файл результата?');">
+                              <button class="btn" type="submit">Удалить файл</button>
+                            </form>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </div>
+                  <div class="admin-list__actions">
+                    <form method="post" action="/admin/competitions/{{ c.id }}/delete" onsubmit="return confirm('Удалить соревнование и связанные данные?');">
+                      <button class="btn danger" type="submit">Удалить старт</button>
+                    </form>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="empty-state">Нет активных стартов. Создайте новое соревнование, чтобы начать приём заявок.</div>
+          {% endif %}
+        </section>
+      </section>
+
+      <section class="admin-tab" data-tab-panel="news" hidden>
+        <div class="admin-grid">
+          <section class="admin-card">
+            <div class="admin-card__header">
+              <h2 class="admin-card__title">Создать новость</h2>
+            </div>
+            <p class="admin-card__description">Расскажите о прошедших стартах, объявлениях или важных изменениях.</p>
+            <form class="form-grid" method="post" action="/admin/news/create" enctype="multipart/form-data">
+              <label>Заголовок
+                <input name="title" required>
+              </label>
+              <label>Текст новости
+                <textarea name="body"></textarea>
+              </label>
+              <label>Обложка
+                <input type="file" name="cover">
+              </label>
+              <button class="btn primary" type="submit">Опубликовать</button>
+            </form>
+          </section>
+        </div>
+
+        <section class="admin-card">
+          <div class="admin-card__header">
+            <h2 class="admin-card__title">Опубликованные новости</h2>
+          </div>
+          {% if news %}
+            <ul class="admin-list">
+              {% for n in news %}
+                <li class="admin-list__item">
+                  <div class="admin-list__info">
+                    <strong>{{ n.title }}</strong>
+                    <div class="admin-list__meta">
+                      <span>Опубликовано {{ n.published_at.strftime('%d.%m.%Y') }}</span>
+                    </div>
+                  </div>
+                  <div class="admin-list__actions">
+                    <form method="post" action="/admin/news/{{ n.id }}/delete" onsubmit="return confirm('Удалить новость?');">
+                      <button class="btn danger" type="submit">Удалить</button>
+                    </form>
+                  </div>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="empty-state">Пока нет опубликованных новостей — самое время рассказать о событиях клуба.</div>
+          {% endif %}
+        </section>
+      </section>
+
+      <section class="admin-tab" data-tab-panel="integrations" hidden>
+        <section class="admin-card">
+          <div class="admin-card__header">
+            <h2 class="admin-card__title">Автопубликация во ВКонтакте</h2>
+          </div>
+          <p class="admin-card__description">Укажите параметры сообщества, чтобы новости автоматически публиковались в группу.</p>
+          <form class="form-grid" method="post" action="/admin/integrations/vk">
+            <label class="checkbox">
+              <input type="checkbox" name="vk_enabled" {% if vk_settings['vk_enabled'] == '1' %}checked{% endif %}>
+              <span class="checkbox__box" aria-hidden="true"></span>
+              <span class="checkbox__text">Включить автопубликацию</span>
+            </label>
+            <label>Access token API
+              <input name="vk_access_token" value="{{ vk_settings['vk_access_token'] }}" placeholder="vk1.a...">
+            </label>
+            <label>ID группы
+              <input name="vk_group_id" value="{{ vk_settings['vk_group_id'] }}" placeholder="123456789">
+            </label>
+            <label>Версия API
+              <input name="vk_api_version" value="{{ vk_settings['vk_api_version'] }}">
+            </label>
+            <label>Подпись к посту
+              <textarea name="vk_message_signature" rows="3" placeholder="Например: #клуб #swim">{{ vk_settings['vk_message_signature'] }}</textarea>
+            </label>
+            <div class="card-footer">
+              <button class="btn primary" type="submit">Сохранить настройки</button>
+              <span class="muted">Данные сохраняются в базе и используются при каждой публикации новости.</span>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <section class="admin-tab" data-tab-panel="pages" hidden>
+        <section class="admin-card">
+          <div class="admin-card__header">
+            <h2 class="admin-card__title">Страница «О нас»</h2>
+          </div>
+          <p class="admin-card__description">Обновите информацию о клубе — она появится во вкладке «О нас» на сайте.</p>
+          <form class="form-grid" method="post" action="/admin/pages/about">
+            <label>Заголовок страницы
+              <input name="title" value="{{ about_settings['about_title'] }}" required>
+            </label>
+            <label>Подзаголовок
+              <input name="subtitle" value="{{ about_settings['about_subtitle'] }}">
+            </label>
+            <label>Основной текст (поддерживаются HTML-теги абзацев, ссылок и списков)
+              <textarea name="body" rows="8">{{ about_settings['about_body'] }}</textarea>
+            </label>
+            <div class="card-footer">
+              <button class="btn primary" type="submit">Сохранить страницу</button>
+              <span class="muted">Содержимое сохранится в базе и сразу обновится на сайте.</span>
+            </div>
+          </form>
+        </section>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  (function(){
+    const params = new URLSearchParams(window.location.search);
+    const cleared = [];
+
+    if(params.get('news_created') === '1'){
+      showToast('Новость опубликована на сайте', 'success');
+      cleared.push('news_created');
+    }
+    if(params.get('vk_posted') === '1'){
+      showToast('Новость опубликована в группе ВКонтакте', 'success');
+      cleared.push('vk_posted');
+    }
+    if(params.get('vk_saved') === '1'){
+      showToast('Настройки ВКонтакте сохранены', 'success');
+      cleared.push('vk_saved');
+    }
+    if(params.get('about_saved') === '1'){
+      showToast('Страница «О нас» обновлена', 'success');
+      cleared.push('about_saved');
+    }
+    if(params.get('series_updated') === '1'){
+      showToast('Сведения о серии сохранены', 'success');
+      cleared.push('series_updated');
+    }
+    if(params.get('series_updated') === '0'){
+      showToast('Не удалось сохранить сведения о серии — старт не найден.', 'error', {dismissible:true});
+      cleared.push('series_updated');
+    }
+    const vkError = params.get('vk_error');
+    if(vkError){
+      showToast(vkError, 'error', {dismissible:true, duration:9000});
+      cleared.push('vk_error');
+    }
+
+    if(cleared.length){
+      cleared.forEach((name)=>params.delete(name));
+      const newQuery = params.toString();
+      const newUrl = newQuery ? `${window.location.pathname}?${newQuery}` : window.location.pathname;
+      window.history.replaceState(null, '', newUrl);
+    }
+
+    const tabsRoot = document.querySelector('.admin-tabs');
+    if(!tabsRoot){
+      return;
+    }
+    const defaultTab = tabsRoot.dataset.defaultTab || 'overview';
+    const tabButtons = Array.from(tabsRoot.querySelectorAll('[data-tab-button]'));
+    const tabPanels = Array.from(tabsRoot.querySelectorAll('[data-tab-panel]'));
+    const availableTabs = new Set(tabPanels.map(panel => panel.dataset.tabPanel));
+
+    function setActive(tab, updateHistory = true){
+      const target = availableTabs.has(tab) ? tab : defaultTab;
+      tabPanels.forEach(panel => {
+        const isActive = panel.dataset.tabPanel === target;
+        panel.classList.toggle('is-active', isActive);
+        panel.hidden = !isActive;
+      });
+      tabButtons.forEach(button => {
+        const isActive = button.dataset.tabButton === target;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        button.setAttribute('tabindex', isActive ? '0' : '-1');
+      });
+      if(updateHistory){
+        const searchParams = new URLSearchParams(window.location.search);
+        searchParams.set('tab', target);
+        const query = searchParams.toString();
+        const newUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
+      }
+      return target;
+    }
+
+    let activeTab = params.get('tab') || defaultTab;
+    if(!availableTabs.has(activeTab)){
+      activeTab = defaultTab;
+    }
+    setActive(activeTab, false);
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        setActive(button.dataset.tabButton);
+      });
+    });
+  })();
+</script>
+{% endblock %}

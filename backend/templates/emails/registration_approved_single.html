@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <body style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;">
+    <p>Здравствуйте, {{ registration.representative_name }}!</p>
+    <p>
+      Ваша заявка на участие в соревновании <strong>{{ competition.title }}</strong>
+      одобрена.
+    </p>
+    <p>{{ registration.team_summary }}.</p>
+    {% if registration.participants %}
+      {% set member = registration.participants[0] %}
+      <p>
+        Участник: <strong>{{ member.last_name }} {{ member.first_name }}{% if member.middle_name %} {{ member.middle_name }}{% endif %}</strong><br>
+        Дистанция: {{ member.distance or '—' }}
+      </p>
+    {% endif %}
+    <p>Ждём вас на старте!</p>
+  </body>
+</html>

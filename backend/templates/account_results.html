@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Результаты — SwimReg{% endblock %}
+{% block content %}
+<section class="page-section">
+  <div class="card" style="margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div>
+        <h1 style="margin:0;">{% if user.id == target_user.id %}Мои результаты{% else %}Результаты {{ target_user.username }}{% endif %}</h1>
+        {% if target_user.full_name %}<div class="muted">{{ target_user.full_name }}</div>{% endif %}
+      </div>
+      <div style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;">
+        <a class="btn" href="/account">Личный кабинет</a>
+      </div>
+    </div>
+  </div>
+
+  <section class="card" style="margin-bottom:24px;">
+    <h2>Личные рекорды</h2>
+    {% if personal_bests %}
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Дистанция</th>
+              <th>Бассейн</th>
+              <th>Результат</th>
+              <th>FINA</th>
+              <th>Дата</th>
+              <th>Соревнование</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pb in personal_bests %}
+              {% set result = pb.result %}
+              <tr>
+                <td>{{ pb.result.distance_label if result else pb.event_code }}</td>
+                <td>{{ course_labels.get(pb.course, pb.course) }}</td>
+                <td><strong>{{ pb.time_text }}</strong></td>
+                <td>{% if pb.fina_points is not none %}{{ pb.fina_points }}{% else %}—{% endif %}</td>
+                <td>{% if result and result.swim_date %}{{ result.swim_date.strftime('%d.%m.%Y') }}{% elif result %}—{% else %}—{% endif %}</td>
+                <td>{% if result and result.competition %}<a href="/competitions/{{ result.competition.slug }}">{{ result.competition.title }}</a>{% else %}—{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">Пока нет сохранённых личных рекордов.</div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>История стартов</h2>
+    {% if grouped_events %}
+      {% for block in grouped_events %}
+        <div style="margin-bottom:32px;">
+          <h3 style="margin-bottom:8px;">{{ block.distance_label }} — {{ course_labels.get(block.course, block.course) }}</h3>
+          {% if block.personal_best %}
+            <div class="badge status-approved" style="margin-bottom:12px;">PB: {{ block.personal_best.time_text }}{% if block.personal_best.fina_points is not none %}, {{ block.personal_best.fina_points }} FINA{% endif %}</div>
+          {% endif %}
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Дата</th>
+                  <th>Соревнование</th>
+                  <th>Этап</th>
+                  <th>Полос/место</th>
+                  <th>Время</th>
+                  <th>FINA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in block.results %}
+                  <tr{% if item.is_personal_best %} class="status-row"{% endif %}>
+                    <td>{% if item.swim_date %}{{ item.swim_date.strftime('%d.%m.%Y') }}{% else %}—{% endif %}</td>
+                    <td>{% if item.competition %}<a href="/competitions/{{ item.competition.slug }}">{{ item.competition.title }}</a>{% else %}—{% endif %}</td>
+                    <td>{{ item.stage or '—' }}</td>
+                    <td>{% if item.heat %}{{ item.heat }}{% else %}—{% endif %}{% if item.place %}{% if item.heat %}, {% endif %}место {{ item.place }}{% endif %}</td>
+                    <td><strong>{{ item.time_text }}</strong></td>
+                    <td>{% if item.fina_points is not none %}{{ item.fina_points }}{% else %}—{% endif %}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">Результаты ещё не импортированы.</div>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

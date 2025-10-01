@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Требуется подтверждение{% endblock %}
+{% block content %}
+<h1>Требуется подтверждение</h1>
+<p>Для этой операции нужны:</p>
+<ul>
+  {% for f in missing %}
+    <li>{{ f }}</li>
+  {% endfor %}
+</ul>
+<p style="margin-top:12px">
+  <a class="btn" href="/account">В личный кабинет</a>
+  <a class="btn" href="/account/phone">Подтвердить телефон</a>
+</p>
+{% endblock %}

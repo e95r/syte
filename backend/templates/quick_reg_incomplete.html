@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Нужно дополнить профиль{% endblock %}
+{% block content %}
+<section class="grid-two">
+  <div class="card" style="max-width:520px;">
+    <h1>Нужно дополнить профиль</h1>
+    <p>Чтобы записаться на «{{ competition.title }}» одним кликом, заполните в профиле:</p>
+    <ul style="margin:0 0 16px 18px;">
+      {% for f in missing %}
+        <li>{{ f }}</li>
+      {% endfor %}
+    </ul>
+    <div class="card-footer">
+      <a class="btn primary" href="/account/edit">Заполнить профиль</a>
+      <a class="btn" href="/competitions/{{ competition.slug }}">Вернуться к старту</a>
+    </div>
+    <p class="muted">Эти данные нужны, чтобы организатор сразу получил полную заявку без дополнительных уточнений.</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  showToast('Заполните недостающие поля профиля, чтобы завершить регистрацию.', 'error', {dismissible:true, duration:9000});
+</script>
+{% endblock %}

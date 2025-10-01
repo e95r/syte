@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Регистрация на {{ competition.title }}</h2>
+<form method="post" class="registration-form">
+    <label class="checkbox checkbox--reverse">
+        <input type="checkbox" id="register_team" name="register_team">
+        <span class="checkbox__box" aria-hidden="true"></span>
+        <span class="checkbox__text">Зарегистрировать команду</span>
+    </label>
+
+    <div id="team-fields" style="display:none;">
+        <h3>Команда</h3>
+        <label>Название команды:<input type="text" name="team_name"></label><br>
+    </div>
+
+    <h3>Контактные данные</h3>
+    <label id="representative-label"><span id="representative-label-text">Контактное лицо</span><input type="text" name="team_representative" required></label><br>
+    <label>Телефон:<input type="text" name="representative_phone" required></label><br>
+    <label>Email:<input type="email" name="representative_email" required></label><br>
+
+    <h3 id="participants-heading">Участник</h3>
+    <p class="muted" id="participants-hint">Для одиночной заявки заполните данные участника. Для команды добавьте всех членов команды.</p>
+    <div id="participants">
+        <div class="participant">
+            <label>Фамилия:<input type="text" name="last_name" required></label>
+            <label>Имя:<input type="text" name="first_name" required></label>
+            <label>Отчество:<input type="text" name="middle_name"></label>
+            <label>Пол:
+                <select name="gender" required>
+                    <option value="M">М</option>
+                    <option value="F">Ж</option>
+                </select>
+            </label>
+            <label>Дата рождения:<input type="date" name="birth_date" required></label>
+            <label>Дистанция:<input type="text" name="distance" required></label>
+        </div>
+    </div>
+    <button type="button" id="add-participant" onclick="addParticipant()" style="display:none;">+ Добавить участника</button><br><br>
+    <button type="submit" id="submit-button">Зарегистрироваться</button>
+</form>
+
+<script>
+function addParticipant() {
+    const template = document.querySelector("#participants .participant");
+    if (!template) {
+        return;
+    }
+    const clone = template.cloneNode(true);
+    clone.querySelectorAll("input").forEach((input) => {
+        input.value = "";
+    });
+    clone.querySelectorAll("select").forEach((select) => {
+        select.selectedIndex = 0;
+    });
+    document.getElementById("participants").appendChild(clone);
+}
+
+function trimToSingleParticipant() {
+    const container = document.getElementById("participants");
+    const participants = container.querySelectorAll(".participant");
+    participants.forEach((node, index) => {
+        if (index > 0) {
+            node.remove();
+        }
+    });
+}
+
+function updateRegistrationMode() {
+    const checkbox = document.getElementById("register_team");
+    const teamFields = document.getElementById("team-fields");
+    const addButton = document.getElementById("add-participant");
+    const teamNameInput = document.querySelector("input[name='team_name']");
+    const representativeLabelText = document.getElementById("representative-label-text");
+    const participantsHeading = document.getElementById("participants-heading");
+    const submitButton = document.getElementById("submit-button");
+
+    const isTeam = checkbox.checked;
+    teamFields.style.display = isTeam ? "block" : "none";
+    if (teamNameInput) {
+        teamNameInput.required = isTeam;
+    }
+    addButton.style.display = isTeam ? "inline-block" : "none";
+    participantsHeading.textContent = isTeam ? "Участники команды" : "Участник";
+    representativeLabelText.textContent = isTeam ? "Представитель команды" : "Контактное лицо";
+    submitButton.textContent = isTeam ? "Зарегистрировать команду" : "Зарегистрироваться";
+
+    if (!isTeam) {
+        trimToSingleParticipant();
+    }
+}
+
+document.getElementById("register_team").addEventListener("change", updateRegistrationMode);
+
+// Инициализация состояния формы
+updateRegistrationMode();
+</script>
+{% endblock %}

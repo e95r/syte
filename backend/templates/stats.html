@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Статистика</h1>
+<ul>
+  {% for c in comps %}
+    <li><a href="/competitions/{{ c.slug }}">{{ c.title }}</a></li>
+  {% else %}
+    <li>Нет данных</li>
+  {% endfor %}
+</ul>
+{% endblock %}

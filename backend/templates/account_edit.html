@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Редактировать профиль — SwimReg{% endblock %}
+{% block content %}
+<section class="grid-two">
+  <div class="card" style="max-width:720px;">
+    <h1>Редактирование профиля</h1>
+    <p class="muted">Обновите личные данные, чтобы мы могли автоматически заполнять заявки на соревнования.</p>
+    {% if error %}
+      <div class="alert error">{{ error }}</div>
+    {% endif %}
+    <form class="form-grid" method="post" action="/account/edit" style="gap:16px;">
+      <label>Имя пользователя (username)
+        <input name="username" value="{{ user.username }}" required>
+      </label>
+      <label>ФИО
+        <input name="full_name" value="{{ user.full_name }}">
+      </label>
+      <label>Пол
+        <select name="gender">
+          <option value="" {% if not user.gender %}selected{% endif %}>—</option>
+          <option value="M" {% if user.gender=='M' %}selected{% endif %}>М</option>
+          <option value="F" {% if user.gender=='F' %}selected{% endif %}>Ж</option>
+        </select>
+      </label>
+      <label>Дата рождения
+        <input type="date" name="birth_date" value="{{ user.birth_date if user.birth_date else '' }}">
+      </label>
+      <label>Телефон
+        <input name="phone" value="{{ user.phone }}" placeholder="+7 (999) 000-00-00">
+      </label>
+      <label>Город
+        <input name="city" value="{{ user.city }}">
+      </label>
+      <label>О себе
+        <textarea name="about" rows="4">{{ user.about }}</textarea>
+      </label>
+      <div class="card-footer">
+        <button class="btn primary" type="submit">Сохранить изменения</button>
+        <a class="btn" href="/account">Отмена</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="max-width:360px;">
+    <h2>Обновить аватар</h2>
+    <p class="muted">Выберите новое изображение, чтобы персонализировать профиль.</p>
+    <form class="form-grid" method="post" action="/account/avatar" enctype="multipart/form-data" style="gap:12px;">
+      <label>Файл изображения
+        <input type="file" name="avatar" accept="image/*" required>
+      </label>
+      <button class="btn" type="submit">Загрузить</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+{% if error is defined and error %}
+<script>
+  showToast({{ error|tojson }}, 'error', {dismissible:true, duration:7000});
+</script>
+{% endif %}
+{% endblock %}
