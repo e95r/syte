@@ -137,6 +137,23 @@ templates.env.globals.update(
 app.state.templates = templates
 
 
+@app.get("/debug/whoami")
+async def debug_whoami(request: Request) -> dict[str, str | None]:
+    """Expose proxy-resolved client information for troubleshooting."""
+
+    client_host = request.client.host if request.client else None
+    headers = request.headers
+
+    return {
+        "client_host": client_host,
+        "url_scheme": request.url.scheme,
+        "x_forwarded_for": headers.get("x-forwarded-for"),
+        "x_forwarded_proto": headers.get("x-forwarded-proto"),
+        "x_forwarded_host": headers.get("x-forwarded-host"),
+        "x_forwarded_port": headers.get("x-forwarded-port"),
+    }
+
+
 @lru_cache(maxsize=8)
 def _load_translations(language: str) -> gettext.NullTranslations:
     locale_dir = Path(settings.LOCALE_DIR)
