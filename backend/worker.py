@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 import os
+
 from redis import Redis
 from rq import Connection, Worker
+
+from logging_config import setup_logging
+
+logger = setup_logging().getChild("worker")
 
 
 def main() -> int:
@@ -10,6 +15,7 @@ def main() -> int:
     if not redis_url:
         raise RuntimeError("REDIS_URL environment variable is required")
 
+    logger.info("Starting worker with Redis URL %s", redis_url)
     connection = Redis.from_url(redis_url)
     queues = ["default"]
 

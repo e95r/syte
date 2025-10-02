@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: swimdb
       POSTGRES_USER: swimuser
       POSTGRES_PASSWORD: s3curePg2025!
+    mem_limit: "768m"
+    cpus: "0.75"
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -23,6 +25,8 @@ services:
     image: redis:7.4-alpine
     container_name: swimredis
     command: ["redis-server", "--appendonly", "yes"]
+    mem_limit: "256m"
+    cpus: "0.25"
     volumes:
       - redisdata:/data
     ports:
@@ -36,11 +40,14 @@ services:
     container_name: swimbackend
     env_file:
       - ./backend/.env
+    mem_limit: "1g"
+    cpus: "1.0"
     volumes:
       - ./backend/storage:/app/storage
       - ./backend/static:/app/static
       - ./backend/templates:/app/templates
       - ./backend/alembic.ini:/app/alembic.ini   # гарантируем правильный alembic.ini внутри контейнера
+      - logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
@@ -66,6 +73,8 @@ services:
     container_name: swimworker
     env_file:
       - ./backend/.env
+    mem_limit: "512m"
+    cpus: "0.5"
     depends_on:
       redis:
         condition: service_started
@@ -73,12 +82,16 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
+    volumes:
+      - logs:/app/logs
     command: bash -lc "python worker.py"
     restart: unless-stopped
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: swim_mailhog
+    mem_limit: "256m"
+    cpus: "0.25"
     ports:
       - "1025:1025"   # SMTP для приложения
       - "8025:8025"   # Web UI для просмотра писем
@@ -87,3 +100,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  logs:
