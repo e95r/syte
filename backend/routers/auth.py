@@ -58,7 +58,7 @@ def _client_ip(request: Request) -> str:
 
 
 @router.post("/login", response_model=Token)
-@limiter.limit("5/min")
+@limiter.limit("5/minute")
 def login_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -138,7 +138,7 @@ def auth_register_form(request: Request):
     )
 
 @router.post("/auth/register")
-@limiter.limit("5/min")
+@limiter.limit("5/minute")
 def auth_register(
     request: Request,
     email: str = Form(...),
@@ -203,7 +203,7 @@ def auth_login_form(request: Request):
     return request.app.state.templates.TemplateResponse("auth_login.html", {"request": request})
 
 @router.post("/auth/login")
-@limiter.limit("5/min")
+@limiter.limit("5/minute")
 def auth_login(
     request: Request,
     email: str = Form(...),
@@ -231,7 +231,7 @@ def auth_logout(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=Token)
-@limiter.limit("10/min")
+@limiter.limit("10/minute")
 def refresh_tokens(
     request: Request,
     payload: RefreshRequest,
