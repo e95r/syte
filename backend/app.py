@@ -1,6 +1,7 @@
 import gettext
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
@@ -17,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.coder import PickleCoder
+from fastapi_cache.key_builder import default_key_builder
 
 from db import Base, engine
 from limiter import limiter
@@ -32,6 +34,45 @@ from routers import (
     results,
 )
 from settings import settings
+
+def _session_aware_cache_key_builder(
+    func,
+    namespace: str = "",
+    *,
+    request: Request | None = None,
+    response: Response | None = None,
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+):
+    """Include the current session user in cache keys.
+
+    Cached pages such as the public homepage render different navigation
+    elements depending on whether the visitor is authenticated. When those
+    responses are cached without differentiating by user, anonymous visitors
+    may receive a version that contains links for signed-in users (for example
+    the «Личный кабинет» link). This key builder appends the session user ID to
+    the default cache key so that cached pages are segmented by authentication
+    state.
+    """
+
+    session_uid = "anon"
+    if request is not None:
+        session = getattr(request, "session", None)
+        if isinstance(session, dict):
+            uid = session.get("uid")
+            if uid:
+                session_uid = f"uid:{uid}"
+
+    base_key = default_key_builder(
+        func,
+        namespace,
+        request=request,
+        response=response,
+        args=args,
+        kwargs=kwargs,
+    )
+    return f"{base_key}:{session_uid}"
+
 
 app = FastAPI(title=settings.APP_NAME)
 instrumentator = Instrumentator()
@@ -105,6 +146,7 @@ async def on_startup() -> None:
         RedisBackend(redis),
         prefix=settings.CACHE_PREFIX,
         coder=PickleCoder(),
+        key_builder=_session_aware_cache_key_builder,
     )
 
     instrumentator.expose(app, include_in_schema=False)
