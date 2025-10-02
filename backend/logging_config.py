@@ -1,56 +1,170 @@
-"""Application logging configuration helpers."""
+"""Centralised logging configuration for the application."""
 
 from __future__ import annotations
 
+import json
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import logging.config
+from contextvars import ContextVar, Token
+from datetime import datetime, timezone
+from typing import Any, Final
 
 from settings import settings
 
-_HANDLER_NAME = "swimreg.file"
+_REQUEST_ID: Final[ContextVar[str]] = ContextVar("request_id", default="-")
+_RESERVED_RECORD_ATTRS: Final[set[str]] = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "message",
+    "asctime",
+}
+
+
+def get_request_id() -> str:
+    """Return the request id bound to the current context."""
+
+    request_id = _REQUEST_ID.get()
+    return request_id if request_id else "-"
+
+
+def bind_request_id(request_id: str) -> Token[str]:
+    """Attach the request id to the logging context."""
+
+    return _REQUEST_ID.set(request_id)
+
+
+def reset_request_id(token: Token[str]) -> None:
+    """Reset the request id context to a previous value."""
+
+    _REQUEST_ID.reset(token)
+
+
+class RequestIdFilter(logging.Filter):
+    """Inject the current request id into log records."""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - standard filter signature
+        record.request_id = get_request_id()
+        return True
+
+
+class JsonFormatter(logging.Formatter):
+    """Render log records as JSON objects."""
+
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401 - interface defined by logging
+        message = record.getMessage()
+        payload: dict[str, Any] = {
+            "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(
+                timespec="milliseconds"
+            ),
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "line": record.lineno,
+            "message": message,
+            "request_id": getattr(record, "request_id", "-"),
+        }
+
+        for key, value in record.__dict__.items():
+            if key in _RESERVED_RECORD_ATTRS or key.startswith("_"):
+                continue
+            if value is None:
+                continue
+            payload[key] = value
+
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            payload["stack"] = self.formatStack(record.stack_info)
+
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def build_logging_config(log_level: str | None = None) -> dict[str, Any]:
+    """Create a dictionary config suitable for logging.dictConfig."""
+
+    level = (log_level or settings.LOG_LEVEL).upper()
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {
+            "request_id": {"()": "logging_config.RequestIdFilter"},
+        },
+        "formatters": {
+            "json": {"()": "logging_config.JsonFormatter"},
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+                "filters": ["request_id"],
+                "formatter": "json",
+            },
+            "null": {"class": "logging.NullHandler"},
+        },
+        "root": {
+            "level": level,
+            "handlers": ["console"],
+        },
+        "loggers": {
+            "uvicorn": {
+                "handlers": ["console"],
+                "level": level,
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["null"],
+                "propagate": False,
+            },
+            "uvicorn.error": {
+                "handlers": ["console"],
+                "level": level,
+                "propagate": False,
+            },
+            "gunicorn.error": {
+                "handlers": ["console"],
+                "level": level,
+                "propagate": False,
+            },
+            "gunicorn.access": {
+                "handlers": ["null"],
+                "propagate": False,
+            },
+        },
+    }
 
 
 def setup_logging() -> logging.Logger:
-    """Configure rotating file logging for the application.
+    """Apply the logging configuration and return the app logger."""
 
-    The function is idempotent – repeated calls will not attach duplicate
-    handlers. Log files are written to ``settings.LOG_DIR`` and rotated to
-    prevent unbounded growth while still keeping recent history available for
-    troubleshooting.
-    """
-
-    log_level_name = settings.LOG_LEVEL.upper()
-    log_level = getattr(logging, log_level_name, logging.INFO)
-
-    log_dir = Path(settings.LOG_DIR)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "application.log"
-
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-
-    already_configured = any(
-        getattr(handler, "name", "") == _HANDLER_NAME for handler in root_logger.handlers
-    )
-    if not already_configured:
-        file_handler = RotatingFileHandler(
-            log_path,
-            maxBytes=settings.LOG_MAX_BYTES,
-            backupCount=settings.LOG_BACKUP_COUNT,
-        )
-        file_handler.name = _HANDLER_NAME
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
-
+    logging.captureWarnings(True)
+    logging.config.dictConfig(build_logging_config())
     return logging.getLogger("swimreg")
 
 
-__all__ = ["setup_logging"]
-
+__all__ = [
+    "JsonFormatter",
+    "RequestIdFilter",
+    "bind_request_id",
+    "build_logging_config",
+    "get_request_id",
+    "reset_request_id",
+    "setup_logging",
+]

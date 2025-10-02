@@ -51,3 +51,5 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels --require-hashes 
 COPY . /app
 
 EXPOSE 8000
+
+CMD ["gunicorn", "-c", "gunicorn_conf.py", "app:app"]

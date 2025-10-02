@@ -503,6 +503,10 @@ greenlet==3.2.4 \
     --hash=sha256:f10fd42b5ee276335863712fa3da6608e93f70629c631bf77145021600abc23c \
     --hash=sha256:f28588772bb5fb869a8eb331374ec06f24a83a9c25bfa1f38b6993afe9c1e968
     # via sqlalchemy
+gunicorn==22.0.0 \
+    --hash=sha256:350679f91b24062c86e386e198a15438d53a7a8207235a78ba1b53df4c4378d9 \
+    --hash=sha256:4a0b436239ff76fb33f11c07a16482c521a7e09c1ce3cc293c2330afe01bec63
+    # via -r requirements.txt
 h11==0.16.0 \
     --hash=sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
@@ -690,6 +694,7 @@ packaging==25.0 \
     --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \
     --hash=sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f
     # via
+    #   gunicorn
     #   limits
     #   pytest
 passlib[bcrypt]==1.7.4 \
