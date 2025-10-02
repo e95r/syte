@@ -9,6 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 class Settings(BaseSettings):
     APP_NAME: str = "SwimReg"
+    APP_VERSION: str = "0.1.0"
     ENV: str = "dev"
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
@@ -65,5 +66,5 @@ def ensure_directories(settings_obj: "Settings") -> None:
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
 ensure_directories(settings)
