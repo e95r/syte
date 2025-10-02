@@ -1,2 +1,7 @@
 # Project-specific ignores
 backend/logs/
+.env
+backend/.env
+deploy/certs/*.crt
+deploy/certs/*.key
+deploy/certs/*.pem

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import logging
 import os
+from urllib.parse import urlparse
 
 from redis import Redis
 from rq import Connection, Worker
 
 from logging_config import setup_logging
 
-logger = setup_logging().getChild("worker")
+setup_logging()
+logger = logging.getLogger("swimreg.worker")
 
 
 def main() -> int:
@@ -15,7 +18,16 @@ def main() -> int:
     if not redis_url:
         raise RuntimeError("REDIS_URL environment variable is required")
 
-    logger.info("Starting worker with Redis URL %s", redis_url)
+    parsed = urlparse(redis_url)
+    redis_target = parsed.hostname or "localhost"
+    if parsed.port:
+        redis_target = f"{redis_target}:{parsed.port}"
+    redis_db = parsed.path.lstrip("/") or "0"
+
+    logger.info(
+        "worker_startup",
+        extra={"redis_target": redis_target, "redis_db": redis_db},
+    )
     connection = Redis.from_url(redis_url)
     queues = ["default"]
 

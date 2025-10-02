@@ -1,9 +1,11 @@
 import gettext
 import logging
+import re
 import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple, cast
+from uuid import uuid4
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
@@ -15,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.extension import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from fastapi_cache import FastAPICache
@@ -24,7 +27,7 @@ from fastapi_cache.key_builder import default_key_builder
 
 from db import Base, engine
 from limiter import limiter
-from logging_config import setup_logging
+from logging_config import bind_request_id, reset_request_id, setup_logging
 from routers import (
     account as account_router,
     admin,
@@ -37,8 +40,19 @@ from routers import (
 from settings import settings
 
 setup_logging()
+logger = logging.getLogger("swimreg.app")
 request_logger = logging.getLogger("swimreg.requests")
-request_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9\-_,.:]{4,128}$")
+_EXCLUDED_PATHS = set(settings.REQUEST_LOG_EXCLUDE_PATHS)
+
+
+def _resolve_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "-"
 
 
 def _session_aware_cache_key_builder(
@@ -92,6 +106,7 @@ rate_limit_handler = cast(
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -148,39 +163,57 @@ async def apply_i18n(request: Request, call_next):
 
 
 @app.middleware("http")
-async def log_requests(request: Request, call_next):
-    if request.url.path == "/healthz":
+async def request_context(request: Request, call_next):
+    if request.url.path in _EXCLUDED_PATHS:
         return await call_next(request)
 
+    raw_request_id = request.headers.get(settings.REQUEST_ID_HEADER, "")
+    request_id = raw_request_id if _REQUEST_ID_PATTERN.match(raw_request_id) else uuid4().hex
+    token = bind_request_id(request_id)
+    request.state.request_id = request_id
+
     start_time = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - start_time) * 1000
-
-    client_host = request.client.host if request.client else "-"
+    client_ip = _resolve_client_ip(request)
     user_agent = request.headers.get("user-agent", "-")
-    request_id = request.headers.get("x-request-id", "-")
-    content_length = response.headers.get("content-length")
-    if content_length is None:
-        body = getattr(response, "body", None)
-        if isinstance(body, (bytes, bytearray)):
-            content_length = str(len(body))
-        elif body is not None:
-            content_length = str(len(str(body)))
-        else:
-            content_length = "0"
 
-    request_logger.info(
-        "%s %s %s status=%s duration_ms=%.2f content_length=%s ua=%r request_id=%s",
-        client_host,
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-        content_length,
-        user_agent,
-        request_id,
-    )
-    return response
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # pragma: no cover - defensive logging path
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        status_code = getattr(exc, "status_code", 500)
+        request_logger.exception(
+            "request_failed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": status_code,
+                "duration_ms": duration_ms,
+                "client_ip": client_ip,
+                "user_agent": user_agent,
+            },
+        )
+        raise
+    else:
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        response.headers.setdefault(settings.REQUEST_ID_HEADER, request_id)
+        content_length = response.headers.get("content-length")
+        request_logger.info(
+            "request_completed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": duration_ms,
+                "client_ip": client_ip,
+                "user_agent": user_agent,
+                "content_length": content_length,
+            },
+        )
+        return response
+    finally:
+        reset_request_id(token)
 
 
 # DB init
@@ -196,6 +229,13 @@ async def on_startup() -> None:
         prefix=settings.CACHE_PREFIX,
         coder=PickleCoder,
         key_builder=_session_aware_cache_key_builder,
+    )
+    logger.info(
+        "startup_complete",
+        extra={
+            "environment": settings.ENV,
+            "version": settings.APP_VERSION,
+        },
     )
 
     instrumentator.expose(app, include_in_schema=False)

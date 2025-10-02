@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import re
 
 from sqlalchemy import func, select
@@ -154,7 +154,9 @@ def _base_lane_order(lane_count: int) -> List[int]:
     return order[:lane_count]
 
 
-def _serpentine_assign(entries: List[_SeedingEntry], lane_count: int) -> List[List[tuple[int, _SeedingEntry]]]:
+def _serpentine_assign(
+    entries: List[_SeedingEntry], lane_count: int
+) -> List[List[tuple[int, _SeedingEntry]]]:
     if not entries:
         return []
 
