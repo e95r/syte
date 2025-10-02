@@ -1,6 +1,7 @@
 import gettext
 import logging
 import time
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -24,7 +25,7 @@ from fastapi_cache.key_builder import default_key_builder
 
 from db import Base, engine
 from limiter import limiter
-from logging_config import setup_logging
+from logging_config import bind_request_context, reset_request_context, setup_logging
 from routers import (
     account as account_router,
     admin,
@@ -148,19 +149,52 @@ async def log_requests(request: Request, call_next):
         return await call_next(request)
 
     start_time = time.perf_counter()
-    response = await call_next(request)
-    duration = (time.perf_counter() - start_time) * 1000
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    trace_id = request.headers.get("x-trace-id")
+    context_tokens = bind_request_context(request_id, trace_id)
 
     client_host = request.client.host if request.client else "-"
-    request_logger.info(
-        "%s %s %s %s %.2fms",
-        client_host,
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration,
-    )
-    return response
+    user_agent = request.headers.get("user-agent", "-")
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # pragma: no cover - defensive logging path
+        duration = (time.perf_counter() - start_time) * 1000
+        status_code = getattr(exc, "status_code", 500)
+        request_logger.exception(
+            "request failed",
+            extra={
+                "http": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                },
+                "client": {"ip": client_host, "user_agent": user_agent},
+                "duration_ms": round(duration, 2),
+            },
+        )
+        raise
+    else:
+        duration = (time.perf_counter() - start_time) * 1000
+        response.headers.setdefault("X-Request-ID", request_id)
+        if trace_id:
+            response.headers.setdefault("X-Trace-ID", trace_id)
+
+        request_logger.info(
+            "request completed",
+            extra={
+                "http": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                },
+                "client": {"ip": client_host, "user_agent": user_agent},
+                "duration_ms": round(duration, 2),
+            },
+        )
+        return response
+    finally:
+        reset_request_context(context_tokens)
 
 # DB init
 Base.metadata.create_all(bind=engine)

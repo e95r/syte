@@ -1,13 +1,60 @@
-from pathlib import Path
-from typing import Dict
+from __future__ import annotations
 
-from pydantic_settings import BaseSettings
+import os
+from pathlib import Path
+from typing import Dict, Iterable, Tuple
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BASE_DIR = Path(__file__).resolve().parent
+ENV_DIR = BASE_DIR / "env"
+
+
+def _env_file_candidates() -> Tuple[Path, ...]:
+    """Return configuration files ordered by precedence.
+
+    The loader looks for environment-specific files inside ``backend/env`` and
+    falls back to a project-level ``.env``. Files that do not exist are ignored
+    by ``pydantic-settings`` so that developers can decide which ones to
+    provide locally. ``.env.prod`` is always evaluated last and therefore has
+    the highest priority when present, matching the production-first approach
+    described in the deployment checklist.
+    """
+
+    env_name = os.getenv("ENV") or os.getenv("APP_ENV")
+    candidates: Iterable[Path] = (
+        ENV_DIR / ".env",
+        ENV_DIR / ".env.local",
+        *(
+            (ENV_DIR / f".env.{env_name}",)
+            if env_name
+            else ()
+        ),
+        ENV_DIR / ".env.dev",
+        ENV_DIR / ".env.stage",
+        ENV_DIR / ".env.prod",
+        BASE_DIR / ".env",
+    )
+
+    unique_candidates: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        if path not in seen:
+            unique_candidates.append(path)
+            seen.add(path)
+    return tuple(unique_candidates)
 
 
 class Settings(BaseSettings):
+    """Application configuration sourced from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=_env_file_candidates(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     APP_NAME: str = "SwimReg"
     ENV: str = "dev"
     SECRET_KEY: str
@@ -17,10 +64,10 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
 
-    MEDIA_DIR: str
-    DOCS_DIR: str
-    RESULTS_DIR: str
-    STATIC_DIR: str
+    MEDIA_DIR: str = str(BASE_DIR / "storage" / "media")
+    DOCS_DIR: str = str(BASE_DIR / "storage" / "docs")
+    RESULTS_DIR: str = str(BASE_DIR / "storage" / "results")
+    STATIC_DIR: str = str(BASE_DIR / "static")
 
     LOG_DIR: str = str(BASE_DIR / "logs")
     LOG_LEVEL: str = "INFO"
@@ -49,9 +96,6 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
     S3_REGION: str = "us-east-1"
-
-    class Config:
-        env_file = ".env"
 
 
 def ensure_directories(settings_obj: "Settings") -> None:
