@@ -19,7 +19,7 @@ RUN apt-get update \
 
 COPY requirements.txt ./requirements.txt
 
-RUN pip wheel --no-cache-dir --no-deps -r requirements.txt -w /wheels
+RUN pip wheel --no-cache-dir -r requirements.txt -w /wheels
 
 FROM python:3.11-slim AS runtime
 
