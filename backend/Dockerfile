@@ -18,8 +18,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt
+COPY requirements.lock ./requirements.lock
 
-RUN pip wheel --no-cache-dir -r requirements.txt -w /wheels
+RUN pip wheel --no-cache-dir --require-hashes -r requirements.lock -w /wheels
 
 FROM python:3.11-slim AS runtime
 
@@ -37,12 +38,14 @@ RUN apt-get update \
         shared-mime-info \
         libpq5 \
         libffi8 \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt
+COPY requirements.lock ./requirements.lock
 COPY --from=builder /wheels /wheels
 
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+RUN pip install --no-cache-dir --no-index --find-links=/wheels --require-hashes -r requirements.lock \
     && rm -rf /wheels /root/.cache/pip
 
 COPY . /app
