@@ -1,52 +1,70 @@
+# ---------- builder: собираем wheel'ы с ретраями и кэшем ----------
 FROM python:3.11-slim AS builder
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=180 \
+    PIP_RETRIES=10 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
+# Инструменты для сборки и dev-заголовки только тут (в runtime не нужны)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
-        libcairo2 \
-        libpango-1.0-0 \
-        libpangocairo-1.0-0 \
-        libgdk-pixbuf-2.0-0 \
-        libffi-dev \
-        shared-mime-info \
-    && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends \
+      build-essential \
+      gcc \
+      pkg-config \
+      python3-dev \
+      libpq-dev \
+      libcairo2-dev \
+      libpango1.0-dev \
+      libgdk-pixbuf-2.0-dev \
+      libffi-dev \
+ && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./requirements.txt
+# Кладём lock-файл с хэшами (и requirements.txt, если используется вместе с lock)
 COPY requirements.lock ./requirements.lock
+COPY requirements.txt  ./requirements.txt
 
-RUN pip wheel --no-cache-dir --require-hashes -r requirements.lock -w /wheels
+# Обновляем pip/setuptools/wheel (не ломает --require-hashes)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade pip setuptools wheel
+
+# Сборка wheel'ов с уважением к хэшам и с использованием кеша BuildKit
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip wheel \
+      --require-hashes \
+      --progress-bar off \
+      --default-timeout=180 \
+      -r requirements.lock \
+      -w /wheels
 
 FROM python:3.11-slim AS runtime
 
-WORKDIR /app
-
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+WORKDIR /app
+
+# Только runtime-библиотеки
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libcairo2 \
-        libpango-1.0-0 \
-        libpangocairo-1.0-0 \
-        libgdk-pixbuf-2.0-0 \
-        shared-mime-info \
-        libpq5 \
-        libffi8 \
-        curl \
-    && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends \
+      libpq5 \
+      libcairo2 \
+      libpango-1.0-0 \
+      libpangocairo-1.0-0 \
+      libgdk-pixbuf-2.0-0 \
+      libffi8 \
+ && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./requirements.txt
-COPY requirements.lock ./requirements.lock
+
 COPY --from=builder /wheels /wheels
+COPY requirements.lock   /app/requirements.lock
 
-RUN pip install --no-cache-dir --no-index --find-links=/wheels --require-hashes -r requirements.lock \
-    && rm -rf /wheels /root/.cache/pip
+RUN python -m pip install --no-cache-dir --no-index --find-links=/wheels -r /app/requirements.lock \
+ && rm -rf /wheels /root/.cache/pip
+
 
 COPY . /app
 
