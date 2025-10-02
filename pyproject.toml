@@ -1,0 +1,32 @@
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+include = ["backend/**/*.py", "scripts/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E203", "E401", "E402", "E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = ["backend"]
+namespace_packages = true
+explicit_package_bases = true
+ignore_missing_imports = true
+show_error_codes = true
+follow_imports = "skip"
+files = [
+    "backend/app.py",
+    "backend/metrics.py",
+    "backend/routers/registrations.py",
+    "backend/tests",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["backend"]

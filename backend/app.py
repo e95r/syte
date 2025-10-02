@@ -3,7 +3,7 @@ import logging
 import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple, cast
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
@@ -30,9 +30,7 @@ from routers import (
     admin,
     auth,
     calendar as calendar_router,
-    data_io,
     public,
-    reports,
     registrations,
     results,
 )
@@ -41,6 +39,7 @@ from settings import settings
 setup_logging()
 request_logger = logging.getLogger("swimreg.requests")
 request_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+
 
 def _session_aware_cache_key_builder(
     func,
@@ -81,12 +80,16 @@ def _session_aware_cache_key_builder(
     return f"{base_key}:{session_uid}"
 
 
-app = FastAPI(title=settings.APP_NAME)
+app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 instrumentator = Instrumentator()
 instrumentator.instrument(app)
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+rate_limit_handler = cast(
+    Callable[[Request, Exception], Response],
+    _rate_limit_exceeded_handler,
+)
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
@@ -107,7 +110,8 @@ app.mount("/results", StaticFiles(directory=settings.RESULTS_DIR), name="results
 # Templates
 templates = Jinja2Templates(directory="templates")
 templates.env.add_extension("jinja2.ext.i18n")
-templates.env.install_gettext_translations(gettext.NullTranslations(), newstyle=True)
+install_translations = getattr(templates.env, "install_gettext_translations")
+install_translations(gettext.NullTranslations(), newstyle=True)
 templates.env.globals.update(
     {
         "available_languages": settings.LANGUAGES,
@@ -134,7 +138,8 @@ async def apply_i18n(request: Request, call_next):
         language = settings.DEFAULT_LANGUAGE
 
     translations = _load_translations(language)
-    templates.env.install_gettext_translations(translations, newstyle=True)
+    install_translations = getattr(templates.env, "install_gettext_translations")
+    install_translations(translations, newstyle=True)
     request.state.language = language
     request.state.gettext = translations.gettext
 
@@ -149,18 +154,34 @@ async def log_requests(request: Request, call_next):
 
     start_time = time.perf_counter()
     response = await call_next(request)
-    duration = (time.perf_counter() - start_time) * 1000
+    duration_ms = (time.perf_counter() - start_time) * 1000
 
     client_host = request.client.host if request.client else "-"
+    user_agent = request.headers.get("user-agent", "-")
+    request_id = request.headers.get("x-request-id", "-")
+    content_length = response.headers.get("content-length")
+    if content_length is None:
+        body = getattr(response, "body", None)
+        if isinstance(body, (bytes, bytearray)):
+            content_length = str(len(body))
+        elif body is not None:
+            content_length = str(len(str(body)))
+        else:
+            content_length = "0"
+
     request_logger.info(
-        "%s %s %s %s %.2fms",
+        "%s %s %s status=%s duration_ms=%.2f content_length=%s ua=%r request_id=%s",
         client_host,
         request.method,
         request.url.path,
         response.status_code,
-        duration,
+        duration_ms,
+        content_length,
+        user_agent,
+        request_id,
     )
     return response
+
 
 # DB init
 Base.metadata.create_all(bind=engine)
@@ -173,7 +194,7 @@ async def on_startup() -> None:
     FastAPICache.init(
         RedisBackend(redis),
         prefix=settings.CACHE_PREFIX,
-        coder=PickleCoder(),
+        coder=PickleCoder,
         key_builder=_session_aware_cache_key_builder,
     )
 
