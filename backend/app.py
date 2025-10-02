@@ -1,4 +1,6 @@
 import gettext
+import logging
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -8,10 +10,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi.errors import RateLimitExceeded
 from slowapi.extension import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
-from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -22,6 +24,7 @@ from fastapi_cache.key_builder import default_key_builder
 
 from db import Base, engine
 from limiter import limiter
+from logging_config import setup_logging
 from routers import (
     account as account_router,
     admin,
@@ -34,6 +37,10 @@ from routers import (
     results,
 )
 from settings import settings
+
+setup_logging()
+request_logger = logging.getLogger("swimreg.requests")
+request_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 
 def _session_aware_cache_key_builder(
     func,
@@ -132,6 +139,27 @@ async def apply_i18n(request: Request, call_next):
     request.state.gettext = translations.gettext
 
     response = await call_next(request)
+    return response
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    if request.url.path == "/healthz":
+        return await call_next(request)
+
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    duration = (time.perf_counter() - start_time) * 1000
+
+    client_host = request.client.host if request.client else "-"
+    request_logger.info(
+        "%s %s %s %s %.2fms",
+        client_host,
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration,
+    )
     return response
 
 # DB init

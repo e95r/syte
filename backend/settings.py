@@ -13,11 +13,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
     DATABASE_URL: str
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_RECYCLE: int = 1800
 
     MEDIA_DIR: str
     DOCS_DIR: str
     RESULTS_DIR: str
     STATIC_DIR: str
+
+    LOG_DIR: str = str(BASE_DIR / "logs")
+    LOG_LEVEL: str = "INFO"
+    LOG_MAX_BYTES: int = 5 * 1024 * 1024
+    LOG_BACKUP_COUNT: int = 5
 
     REDIS_URL: str = "redis://redis:6379/0"
     CACHE_PREFIX: str = "swimreg:cache"
@@ -52,6 +60,7 @@ def ensure_directories(settings_obj: "Settings") -> None:
         settings_obj.DOCS_DIR,
         settings_obj.RESULTS_DIR,
         settings_obj.STATIC_DIR,
+        settings_obj.LOG_DIR,
     ]:
         Path(path).mkdir(parents=True, exist_ok=True)
 
