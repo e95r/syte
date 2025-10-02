@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     ENV: str = "dev"
     SECRET_KEY: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    REFRESH_TOKEN_SECRET: str | None = None
+    REFRESH_TOKEN_MAX_SESSIONS: int = 5
     DATABASE_URL: str
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20

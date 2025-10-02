@@ -2,8 +2,8 @@ from datetime import datetime as dt
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Form, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,9 +14,11 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from db import get_db
 from models import User
-from schemas import Token
+from schemas import Token, RefreshRequest
 from security import create_access_token, verify_password
 from limiter import limiter
+from services.auth_sessions import issue_refresh_token, rotate_refresh_token, revoke_all_sessions
+from settings import settings
 
 # Для подтверждения e-mail
 from tokens import make_email_token, load_email_token
@@ -46,11 +48,22 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
 # 1) OAuth2: вход и выдача access_token (API)
 # =========================
 
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return ""
+
+
 @router.post("/login", response_model=Token)
 @limiter.limit("5/min")
-def login_token(request: Request,
-                form_data: OAuth2PasswordRequestForm = Depends(),
-                db: Session = Depends(get_db)):
+def login_token(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     """
     OAuth2 password flow: username = email, password = пароль.
     Возвращает JWT access_token.
@@ -58,8 +71,32 @@ def login_token(request: Request,
     user = db.execute(select(User).where(User.email == form_data.username)).scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Неверные учётные данные")
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token_value, refresh_session = issue_refresh_token(
+        db,
+        user,
+        request.headers.get("user-agent", ""),
+        _client_ip(request),
+    )
+    db.commit()
+
+    payload = Token(
+        access_token=access_token,
+        refresh_token=refresh_token_value,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        refresh_expires_at=refresh_session.expires_at,
+    )
+    response = JSONResponse(payload.model_dump())
+    response.set_cookie(
+        "refresh_token",
+        refresh_token_value,
+        httponly=True,
+        secure=settings.ENV not in {"dev", "test"},
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+    )
+    return response
 
 # =========================
 # 2) Админ-вход (через форму, cookie)
@@ -80,7 +117,14 @@ def admin_login_submit(request: Request,
     token = create_access_token({"sub": str(user.id)})
     resp = RedirectResponse(url="/admin", status_code=302)
     # cookie только для админки
-    resp.set_cookie("admin_token", token, httponly=True, max_age=3600 * 12)
+    resp.set_cookie(
+        "admin_token",
+        token,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=settings.ENV not in {"dev", "test"},
+        samesite="lax",
+    )
     return resp
 
 # =========================
@@ -173,12 +217,54 @@ def auth_login(
     return RedirectResponse(url="/account", status_code=303)
 
 @router.post("/auth/logout")
-def auth_logout(request: Request):
+def auth_logout(request: Request, db: Session = Depends(get_db)):
+    uid = request.session.get("uid")
     clear_session_user(request)
+    if uid:
+        revoke_all_sessions(db, uid)
+        db.commit()
     # Чистим и админскую cookie на всякий случай
     resp = RedirectResponse(url="/", status_code=303)
     resp.delete_cookie("admin_token")
+    resp.delete_cookie("refresh_token")
     return resp
+
+
+@router.post("/refresh", response_model=Token)
+@limiter.limit("10/min")
+def refresh_tokens(
+    request: Request,
+    payload: RefreshRequest,
+    db: Session = Depends(get_db),
+):
+    user_agent = request.headers.get("user-agent", "")
+    ip_address = _client_ip(request)
+    try:
+        user, refresh_value, session = rotate_refresh_token(db, payload.refresh_token, user_agent, ip_address)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный или просроченный refresh-токен",
+        )
+
+    access_token = create_access_token({"sub": str(user.id)})
+    db.commit()
+    payload_model = Token(
+        access_token=access_token,
+        refresh_token=refresh_value,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        refresh_expires_at=session.expires_at,
+    )
+    response = JSONResponse(payload_model.model_dump())
+    response.set_cookie(
+        "refresh_token",
+        refresh_value,
+        httponly=True,
+        secure=settings.ENV not in {"dev", "test"},
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+    )
+    return response
 
 # =========================
 # 4) Подтверждение e-mail

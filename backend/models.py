@@ -47,6 +47,11 @@ class User(Base):
     )
     role_associations = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
     roles = relationship("Role", secondary="user_roles", back_populates="users")
+    refresh_tokens = relationship(
+        "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     email_verified_at   = Column(DateTime, nullable=True)
     phone_verified_at   = Column(DateTime, nullable=True)
@@ -136,6 +141,28 @@ class Reminder(Base):
     __table_args__ = (
         Index("ix_reminders_user", "user_id"),
         Index("ix_reminders_comp", "competition_id"),
+    )
+
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(128), unique=True, nullable=False)
+    fingerprint = Column(String(64), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    is_revoked = Column(Boolean, default=False, nullable=False)
+
+    user_agent = Column(String(255), default="")
+    ip_address = Column(String(45), default="")
+
+    user = relationship("User", back_populates="refresh_tokens")
+
+    __table_args__ = (
+        Index("ix_refresh_tokens_user", "user_id"),
     )
 
 class CompetitionSeries(Base):
