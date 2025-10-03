@@ -273,6 +273,7 @@ app.include_router(registrations.router, tags=["registration"])
 app.include_router(results.router, tags=["results"])
 
 
+@app.get("/health", include_in_schema=False)
 @app.get("/healthz", include_in_schema=False)
 async def healthcheck() -> Dict[str, str]:
     return {"status": "ok"}

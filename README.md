@@ -56,7 +56,7 @@
 ## Полезные URL
 
 - Приложение: `https://localhost:8443` (или `http://localhost:8080`).
-- Промышленный health-check: `https://localhost:8443/healthz`.
+- Промышленный health-check: `https://localhost:8443/health`.
 - Метрики Prometheus: `https://localhost:8443/metrics`.
 - Почтовый стенд MailHog: `http://localhost:8025`.
 
