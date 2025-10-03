@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-CERT_DIR="/etc/nginx/certs"
-CERT_FILE="$CERT_DIR/tls.crt"
-KEY_FILE="$CERT_DIR/tls.key"
+CERT_DIR=/etc/nginx/certs
+CERT_FILE="$CERT_DIR/dev.crt"
+KEY_FILE="$CERT_DIR/dev.key"
 
 if [ "${GENERATE_DEV_CERT:-0}" = "0" ]; then
     exit 0

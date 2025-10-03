@@ -59,14 +59,14 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
-    expose:
-      - "8000"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 40s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
     command: >-
       bash -lc "alembic -c /app/alembic.ini upgrade head && exec gunicorn -c gunicorn_conf.py --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker app:app"
     restart: unless-stopped
@@ -100,8 +100,8 @@ services:
     environment:
       GENERATE_DEV_CERT: ${GENERATE_DEV_CERT:-1}
     ports:
-      - "${PROXY_HTTP_PORT:-8080}:80"
-      - "${PROXY_HTTPS_PORT:-8443}:443"
+      - "${PROXY_HTTP_PORT:-80}:80"
+      - "${PROXY_HTTPS_PORT:-443}:443"
     volumes:
       - ./deploy/proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/proxy/conf.d:/etc/nginx/conf.d:ro
@@ -110,11 +110,11 @@ services:
       - ./backend/storage:/var/www/storage:ro
       - proxy_cache:/var/cache/nginx
     healthcheck:
-      test: ["CMD-SHELL", "curl -kfsS https://localhost/health || curl -fsS http://localhost/health"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost/nginx-health"]
       interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 45s
     restart: unless-stopped
 
   mailhog:

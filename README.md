@@ -12,12 +12,21 @@
    ```bash
    make up
    ```
-   После старта прокси сайт будет доступен на `http://localhost:8080` (HTTPS-версия — `https://localhost:8443`).
-3. Следите за логами приложения и прокси:
+   После старта прокси сайт будет доступен на `http://localhost/` (HTTPS-версия — `https://localhost/`).
+   Приложение также отвечает напрямую по `http://localhost:8000/` — можно проверять health:
+   ```bash
+   curl -i http://localhost:8000/health
+   curl -i http://localhost:8000/ready
+   ```
+3. Откройте сайт в браузере:
+   ```bash
+   make open
+   ```
+4. Следите за логами backend:
    ```bash
    make logs
    ```
-4. Остановить или уничтожить окружение:
+5. Остановить или уничтожить окружение:
    ```bash
    make stop   # остановить контейнеры
    make down   # остановить и удалить контейнеры
@@ -46,7 +55,7 @@
 
 - Приложение запускается через `gunicorn` c воркерами `uvicorn`, дефолтное число воркеров вычисляется от числа CPU (минимум 2, максимум 8).
 - Настройки `gunicorn` лежат в `backend/gunicorn_conf.py` и могут переопределяться переменными `GUNICORN_*`.
-- На входе стоит `nginx` (см. `deploy/proxy`). Для разработки он генерирует self-signed сертификат; для продакшна достаточно смонтировать свои `tls.crt/tls.key` в `deploy/certs`.
+- На входе стоит `nginx` (см. `deploy/proxy`). Для разработки он генерирует self-signed сертификат (`dev.crt`/`dev.key`); для продакшна достаточно смонтировать свои файлы в `deploy/certs`.
 
 ## Команды разработчика
 
@@ -57,9 +66,10 @@
 
 ## Полезные URL
 
-- Приложение: `https://localhost:8443` (или `http://localhost:8080`).
-- Промышленный health-check: `https://localhost:8443/health`.
-- Метрики Prometheus: `https://localhost:8443/metrics`.
+- Приложение: `https://localhost/` (или `http://localhost/`).
+- Прямой доступ к backend: `http://localhost:8000/`.
+- Промышленный health-check: `http://localhost:8000/health` (готовность — `/ready`).
+- Метрики Prometheus: `http://localhost:8000/metrics`.
 - Почтовый стенд MailHog: `http://localhost:8025`.
 
 ## Частые вопросы
