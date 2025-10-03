@@ -4,7 +4,7 @@ import re
 import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, cast
+from typing import Any, Dict, Tuple
 from uuid import uuid4
 
 import redis.asyncio as aioredis
@@ -13,9 +13,6 @@ from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator
-from slowapi.errors import RateLimitExceeded
-from slowapi.extension import _rate_limit_exceeded_handler
-from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,7 +23,6 @@ from fastapi_cache.coder import PickleCoder
 from fastapi_cache.key_builder import default_key_builder
 
 from db import Base, engine
-from limiter import limiter
 from logging_config import bind_request_id, reset_request_id, setup_logging
 from routers import (
     account as account_router,
@@ -97,14 +93,6 @@ def _session_aware_cache_key_builder(
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 instrumentator = Instrumentator()
 instrumentator.instrument(app)
-
-app.state.limiter = limiter
-rate_limit_handler = cast(
-    Callable[[Request, Exception], Response],
-    _rate_limit_exceeded_handler,
-)
-app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
-app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.add_middleware(
