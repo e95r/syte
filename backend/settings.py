@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     LANGUAGE_COOKIE_NAME: str = "swimreg_lang"
     DEFAULT_LANGUAGE: str = "ru"
-    LANGUAGES: Dict[str, str] = {"ru": "Русский", "en": "English"}
+    LANGUAGES: Dict[str, str] = {"ru": "Русский"}
     LOCALE_DIR: str = str(BASE_DIR / "locales")
 
     SMTP_HOST: str = "mailhog"
