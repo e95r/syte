@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     REQUEST_ID_HEADER: str = "X-Request-ID"
     REQUEST_LOG_EXCLUDE_PATHS: tuple[str, ...] = ("/health", "/healthz")
+    PROXY_TRUSTED_HOSTS: tuple[str, ...] = ("127.0.0.1", "localhost", "swimproxy")
 
     REDIS_URL: str = "redis://redis:6379/0"
     CACHE_PREFIX: str = "swimreg:cache"
@@ -63,6 +64,21 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
     S3_REGION: str = "us-east-1"
+
+    @field_validator("PROXY_TRUSTED_HOSTS", mode="before")
+    @classmethod
+    def _parse_proxy_hosts(cls, value: object) -> tuple[str, ...]:
+        """Normalise trusted proxy hosts from env variables."""
+
+        if value is None:
+            return ("127.0.0.1", "localhost", "swimproxy")
+        if isinstance(value, str):
+            hosts = [item.strip() for item in value.split(",") if item.strip()]
+            return tuple(hosts) if hosts else ("127.0.0.1", "localhost", "swimproxy")
+        if isinstance(value, (list, tuple, set)):
+            hosts = [str(item).strip() for item in value if str(item).strip()]
+            return tuple(hosts) if hosts else ("127.0.0.1", "localhost", "swimproxy")
+        raise TypeError("PROXY_TRUSTED_HOSTS must be a string or an iterable of strings")
 
 
 def ensure_directories(settings_obj: "Settings") -> None:

@@ -94,7 +94,7 @@ app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 instrumentator = Instrumentator()
 instrumentator.instrument(app)
 
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.PROXY_TRUSTED_HOSTS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
