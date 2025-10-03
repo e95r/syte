@@ -8,8 +8,8 @@ from typing import Any, Dict, Tuple
 from uuid import uuid4
 
 import redis.asyncio as aioredis
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -34,6 +34,7 @@ from routers import (
     results,
 )
 from settings import settings
+from sqlalchemy import text
 
 setup_logging()
 logger = logging.getLogger("swimreg.app")
@@ -277,3 +278,22 @@ app.include_router(results.router, tags=["results"])
 @app.get("/healthz", include_in_schema=False)
 async def healthcheck() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/ready", include_in_schema=False)
+async def readiness_probe() -> JSONResponse:
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+
+        redis = getattr(app.state, "redis", None)
+        if redis is None:
+            raise RuntimeError("Redis connection is not initialised")
+        await redis.ping()
+    except Exception:  # pragma: no cover - readiness diagnostics only
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unavailable"},
+        )
+
+    return JSONResponse(content={"status": "ok"})

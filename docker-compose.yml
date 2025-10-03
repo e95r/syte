@@ -66,9 +66,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 10s
+      start_period: 40s
     command: >-
-      bash -lc "alembic -c /app/alembic.ini upgrade head && exec gunicorn -c gunicorn_conf.py app:app"
+      bash -lc "alembic -c /app/alembic.ini upgrade head && exec gunicorn -c gunicorn_conf.py --bind 0.0.0.0:8000 --worker-class uvicorn.workers.UvicornWorker app:app"
     restart: unless-stopped
 
   worker:
