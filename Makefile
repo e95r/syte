@@ -1,7 +1,7 @@
-.PHONY: up down stop logs build lint format typecheck test check install-dev
+.PHONY: up down stop logs build lint format typecheck test check install-dev open
 
 up:
-	DOCKER_BUILDKIT=1 docker compose up -d
+	DOCKER_BUILDKIT=1 docker compose up -d --build
 
 stop:
 	docker compose stop
@@ -10,7 +10,10 @@ down:
 	docker compose down
 
 logs:
-	docker compose logs -f proxy backend worker
+	docker compose logs -f backend
+
+open:
+	python3 -m webbrowser http://localhost/
 
 build:
 	DOCKER_BUILDKIT=1 docker compose build
