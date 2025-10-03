@@ -183,7 +183,7 @@ def _post_news_to_vk(news: News, settings_map: dict[str, str]) -> tuple[bool, st
     except ValueError:
         return False, "VK group id must be integer"
 
-    base_url = os.getenv("BASE_URL", "http://localhost:8080")
+    base_url = os.getenv("BASE_URL", "http://localhost:8000")
     link = f"{base_url.rstrip('/')}/news#{news.slug}"
     message = _vk_message_from_html(news.title, news.body, signature)
     if link not in message:

@@ -41,7 +41,7 @@ def current_user(db: Session, request: Request) -> User | None:
         return None
     return db.get(User, uid)
 
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 # =========================
 # 1) OAuth2: вход и выдача access_token (API)
