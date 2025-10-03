@@ -5,7 +5,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 from starlette.requests import Request
 from sqlalchemy import select, desc
-from fastapi_cache.decorator import cache
 
 from db import get_db
 from models import AppSetting, Competition, News, ResultFile
@@ -19,7 +18,6 @@ def _startup():
     router.templates = app.state.templates
 
 @router.get("/home", response_class=HTMLResponse)
-@cache(expire=60)
 def home(request: Request, db: Session = Depends(get_db)):
     comps = db.execute(
         select(Competition)
@@ -30,7 +28,6 @@ def home(request: Request, db: Session = Depends(get_db)):
     return request.app.state.templates.TemplateResponse("index.html", {"request": request, "comps": comps, "news": news})
 
 @router.get("/competitions", response_class=HTMLResponse)
-@cache(expire=60)
 def competitions(request: Request, db: Session = Depends(get_db)):
     comps = db.execute(
         select(Competition)
@@ -40,7 +37,6 @@ def competitions(request: Request, db: Session = Depends(get_db)):
     return request.app.state.templates.TemplateResponse("competitions.html", {"request": request, "comps": comps})
 
 @router.get("/competitions/{slug}", response_class=HTMLResponse)
-@cache(expire=60)
 def competition_detail(slug: str, request: Request, db: Session = Depends(get_db)):
     comp = db.execute(
         select(Competition)
@@ -51,19 +47,16 @@ def competition_detail(slug: str, request: Request, db: Session = Depends(get_db
     return request.app.state.templates.TemplateResponse("competition_detail.html", {"request": request, "c": comp, "results": results})
 
 @router.get("/calendar", response_class=HTMLResponse)
-@cache(expire=60)
 def calendar(request: Request, db: Session = Depends(get_db)):
     comps = db.execute(select(Competition).order_by(Competition.start_date)).scalars().all()
     return request.app.state.templates.TemplateResponse("calendar.html", {"request": request, "comps": comps})
 
 @router.get("/news", response_class=HTMLResponse)
-@cache(expire=60)
 def news_list(request: Request, db: Session = Depends(get_db)):
     items = db.execute(select(News).order_by(News.published_at.desc())).scalars().all()
     return request.app.state.templates.TemplateResponse("news.html", {"request": request, "items": items})
 
 @router.get("/stats", response_class=HTMLResponse)
-@cache(expire=60)
 def stats(request: Request, db: Session = Depends(get_db)):
     comps = db.execute(
         select(Competition)
@@ -78,7 +71,6 @@ def contacts(request: Request):
 
 
 @router.get("/about", response_class=HTMLResponse)
-@cache(expire=60)
 def about(request: Request, db: Session = Depends(get_db)):
     defaults = {
         "about_title": "О клубе",
