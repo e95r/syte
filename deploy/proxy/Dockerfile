@@ -1,6 +1,6 @@
 FROM nginx:1.27-alpine
 
-RUN apk add --no-cache nginx-mod-http-brotli openssl curl && \
+RUN apk add --no-cache openssl curl && \
     mkdir -p /etc/nginx/certs
 
 COPY docker-entrypoint.d/ /docker-entrypoint.d/
