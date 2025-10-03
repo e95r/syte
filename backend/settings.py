@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     LOG_DIR: str = str(BASE_DIR / "logs")
     LOG_LEVEL: str = "INFO"
     REQUEST_ID_HEADER: str = "X-Request-ID"
-    REQUEST_LOG_EXCLUDE_PATHS: tuple[str, ...] = ("/healthz",)
+    REQUEST_LOG_EXCLUDE_PATHS: tuple[str, ...] = ("/health", "/healthz")
 
     REDIS_URL: str = "redis://redis:6379/0"
     CACHE_PREFIX: str = "swimreg:cache"
