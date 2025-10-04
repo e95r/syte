@@ -11,6 +11,7 @@ import os
 import re
 
 import requests
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from db import get_db
 from models import (
@@ -83,6 +84,55 @@ def _remove_stored_file(url_or_path: Optional[str]) -> None:
     path = Path(value)
     if path.is_file():
         _unlink_if_exists(path)
+
+
+def _process_cover_upload(upload: UploadFile, max_dimension: int = 1600) -> tuple[bytes, str]:
+    raw_data = upload.file.read()
+    if not raw_data:
+        raise HTTPException(status_code=400, detail="Файл обложки не содержит данных")
+
+    try:
+        image = Image.open(BytesIO(raw_data))
+    except UnidentifiedImageError as exc:
+        raise HTTPException(status_code=400, detail="Файл обложки должен быть изображением") from exc
+
+    try:
+        image = ImageOps.exif_transpose(image)
+    except Exception:
+        # В случае ошибки поворота продолжим с оригиналом
+        pass
+
+    if hasattr(Image, "Resampling"):
+        resample = Image.Resampling.LANCZOS
+    else:  # pragma: no cover - совместимость с более старыми версиями Pillow
+        resample = Image.LANCZOS
+
+    image.thumbnail((max_dimension, max_dimension), resample)
+
+    ext = Path(upload.filename or "").suffix.lower()
+    format_map = {
+        ".jpg": "JPEG",
+        ".jpeg": "JPEG",
+        ".png": "PNG",
+        ".webp": "WEBP",
+    }
+    target_format = format_map.get(ext, image.format or "PNG")
+
+    if target_format == "JPEG" and image.mode not in {"RGB", "L"}:
+        image = image.convert("RGB")
+
+    buffer = BytesIO()
+    save_kwargs: dict[str, object] = {}
+    if target_format == "JPEG":
+        save_kwargs.update({"quality": 85, "optimize": True})
+    elif target_format == "PNG":
+        save_kwargs.update({"optimize": True})
+
+    image.save(buffer, format=target_format, **save_kwargs)
+    image.close()
+    suffix_map = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
+    suffix = suffix_map.get(target_format, ext or ".jpg")
+    return buffer.getvalue(), suffix
 
 
 VK_SETTING_DEFAULTS: dict[str, str] = {
@@ -459,9 +509,15 @@ def admin_news_create(
     slug = slugify(title)
     n = News(title=title, slug=slug, body=body)
     if cover:
-        dest = Path(settings.MEDIA_DIR) / "covers"; dest.mkdir(parents=True, exist_ok=True)
-        p = dest / f"{slug}_{cover.filename}"
-        with open(p, "wb") as f: f.write(cover.file.read())
+        dest = Path(settings.MEDIA_DIR) / "covers"
+        dest.mkdir(parents=True, exist_ok=True)
+        image_bytes, suffix = _process_cover_upload(cover)
+        original_stem = Path(cover.filename or "cover").stem or "cover"
+        safe_stem = slugify(original_stem) or "cover"
+        filename = f"{slug}_{safe_stem}{suffix}"
+        p = dest / filename
+        with open(p, "wb") as f:
+            f.write(image_bytes)
         n.cover_image = f"/media/covers/{p.name}"
     db.add(n); db.commit()
 
