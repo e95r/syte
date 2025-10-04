@@ -18,6 +18,10 @@ anyio==4.11.0 \
     # via
     #   starlette
     #   watchfiles
+asgiref==3.8.1 \
+    --hash=sha256:3e1e3ecc849832fe52ccf2cb6686b7a55f82bb1d6aee72a58826471390335e47 \
+    --hash=sha256:c343bd80a0bec947a9860adb4c432ffa7db769836c64238fc34bdc3fec84d590
+    # via -r requirements.txt
 bcrypt==4.0.1 \
     --hash=sha256:089098effa1bc35dc055366740a067a2fc76987e8ec75349eb9484061c54f535 \
     --hash=sha256:08d2947c490093a11416df18043c27abe3921558d2c03e2076ccb28a116cb6d0 \
